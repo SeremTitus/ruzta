@@ -31,8 +31,6 @@
 #ifndef TEST_GDSCRIPT_H
 #define TEST_GDSCRIPT_H
 
-#include "core/os/main_loop.h"
-
 namespace TestGDScript {
 
 enum TestType {
@@ -42,7 +40,8 @@ enum TestType {
 	TEST_BYTECODE,
 };
 
-MainLoop *test(TestType p_type);
+void test(TestType p_type);
+
 } // namespace TestGDScript
 
 #endif // TEST_GDSCRIPT_H
