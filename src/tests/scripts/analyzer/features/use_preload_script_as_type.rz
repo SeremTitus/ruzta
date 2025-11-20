@@ -1,0 +1,5 @@
+const preloaded: Ruzta = preload("ruzta_to_preload.notest.rz")
+
+func test():
+	var preloaded_instance: preloaded = preloaded.new()
+	print(preloaded_instance.something())

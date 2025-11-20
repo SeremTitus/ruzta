@@ -30,9 +30,9 @@
 
 #pragma once
 
-#include "core/doc_data.h"
-#include "core/object/class_db.h"
-#include "core/templates/list.h"
+// TODO: #include "core/doc_data.h" // original: core/doc_data.h
+#include <godot_cpp/core/class_db.hpp> // original: core/object/class_db.h
+#include <godot_cpp/templates/list.hpp> // original: core/templates/list.h
 
 namespace LSP {
 
@@ -1616,7 +1616,7 @@ struct FileOperationPattern {
 	/**
 	 * The glob pattern to match.
 	 */
-	String glob = "**/*.gd";
+	String glob = "**/*.rz";
 
 	/**
 	 * Whether to match `file`s or `folder`s with this pattern.

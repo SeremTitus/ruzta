@@ -32,27 +32,27 @@
 
 #ifdef TOOLS_ENABLED
 
-#include "modules/modules_enabled.gen.h" // For jsonrpc.
+// TODO: #include "modules/modules_enabled.gen.h" // original: modules/modules_enabled.gen.h
 
 #ifdef MODULE_JSONRPC_ENABLED
 
-#include "tests/test_macros.h"
+// TODO: #include "tests/test_macros.h" // original: tests/test_macros.h
 
-#include "../language_server/gdscript_extend_parser.h"
-#include "../language_server/gdscript_language_protocol.h"
-#include "../language_server/gdscript_workspace.h"
-#include "../language_server/godot_lsp.h"
+#include "../language_server/ruzta_extend_parser.h"
+#include "../language_server/ruzta_language_protocol.h"
+#include "../language_server/ruzta_workspace.h"
+// TODO: #include "../language_server/godot_lsp.h" // original: ../language_server/godot_lsp.h
 
-#include "core/io/dir_access.h"
-#include "core/io/file_access_pack.h"
-#include "core/os/os.h"
-#include "editor/doc/editor_help.h"
-#include "editor/editor_node.h"
+#include <godot_cpp/classes/dir_access.hpp> // original: core/io/dir_access.h
+// TODO: #include "core/io/file_access_pack.h" // original: core/io/file_access_pack.h
+#include <godot_cpp/classes/os.hpp> // original: core/os/os.h
+// TODO: #include "editor/doc/editor_help.h" // original: editor/doc/editor_help.h
+// TODO: #include "editor/editor_node.h" // original: editor/editor_node.h
 
-#include "modules/gdscript/gdscript_analyzer.h"
-#include "modules/regex/regex.h"
+#include "modules/ruzta/ruzta_analyzer.h"
+// TODO: #include "modules/regex/regex.h" // original: modules/regex/regex.h
 
-#include "thirdparty/doctest/doctest.h"
+// TODO: #include "thirdparty/doctest/doctest.h" // original: thirdparty/doctest/doctest.h
 
 template <>
 struct doctest::StringMaker<LSP::Position> {
@@ -75,29 +75,29 @@ struct doctest::StringMaker<GodotPosition> {
 	}
 };
 
-namespace GDScriptTests {
+namespace RuztaTests {
 
-// LSP GDScript test scripts are located inside project of other GDScript tests:
+// LSP Ruzta test scripts are located inside project of other Ruzta tests:
 // Cannot reset `ProjectSettings` (singleton) -> Cannot load another workspace and resources in there.
-// -> Reuse GDScript test project. LSP specific scripts are then placed inside `lsp` folder.
-//    Access via `res://lsp/my_script.gd`.
-const String root = "modules/gdscript/tests/scripts/";
+// -> Reuse Ruzta test project. LSP specific scripts are then placed inside `lsp` folder.
+//    Access via `res://lsp/my_script.rz`.
+const String root = "modules/ruzta/tests/scripts/";
 
 /*
  * After use:
- * * `memdelete` returned `GDScriptLanguageProtocol`.
- * * Call `GDScriptTests::::finish_language`.
+ * * `memdelete` returned `RuztaLanguageProtocol`.
+ * * Call `RuztaTests::::finish_language`.
  */
-GDScriptLanguageProtocol *initialize(const String &p_root) {
+RuztaLanguageProtocol *initialize(const String &p_root) {
 	Error err = OK;
 	Ref<DirAccess> dir(DirAccess::open(p_root, &err));
 	REQUIRE_MESSAGE(err == OK, "Could not open specified root directory");
 	String absolute_root = dir->get_current_dir();
 	init_language(absolute_root);
 
-	GDScriptLanguageProtocol *proto = memnew(GDScriptLanguageProtocol);
+	RuztaLanguageProtocol *proto = memnew(RuztaLanguageProtocol);
 
-	Ref<GDScriptWorkspace> workspace = GDScriptLanguageProtocol::get_singleton()->get_workspace();
+	Ref<RuztaWorkspace> workspace = RuztaLanguageProtocol::get_singleton()->get_workspace();
 	workspace->root = absolute_root;
 	// On windows: `C:/...` -> `C%3A/...`.
 	workspace->root_uri = "file:///" + absolute_root.lstrip("/").replace_first(":", "%3A");
@@ -127,7 +127,7 @@ LSP::TextDocumentPositionParams pos_in(const LSP::DocumentUri &p_uri, const LSP:
 }
 
 const LSP::DocumentSymbol *test_resolve_symbol_at(const String &p_uri, const LSP::Position p_pos, const String &p_expected_uri, const String &p_expected_name, const LSP::Range &p_expected_range) {
-	Ref<GDScriptWorkspace> workspace = GDScriptLanguageProtocol::get_singleton()->get_workspace();
+	Ref<RuztaWorkspace> workspace = RuztaLanguageProtocol::get_singleton()->get_workspace();
 
 	LSP::TextDocumentPositionParams params = pos_in(p_uri, p_pos);
 	const LSP::DocumentSymbol *symbol = workspace->resolve_symbol(params);
@@ -197,7 +197,7 @@ Vector<InlineTestData> read_tests(const String &p_path) {
 	REQUIRE_MESSAGE(err == OK, vformat("Cannot read '%s'", p_path));
 
 	// Format:
-	// ```gdscript
+	// ```ruzta
 	// var foo = bar + baz
 	// #   | |   | |   ^^^ name -> ref
 	// #   | |   ^^^ -> ref
@@ -259,7 +259,7 @@ void test_resolve_symbol(const String &p_uri, const InlineTestData &p_test_data,
 		}
 		REQUIRE_MESSAGE(target, vformat("No target for ref '%s'", p_test_data.ref));
 
-		Ref<GDScriptWorkspace> workspace = GDScriptLanguageProtocol::get_singleton()->get_workspace();
+		Ref<RuztaWorkspace> workspace = RuztaLanguageProtocol::get_singleton()->get_workspace();
 		LSP::Position pos = p_test_data.range.start;
 
 		SUBCASE("start of identifier") {
@@ -302,11 +302,11 @@ void assert_no_errors_in(const String &p_path) {
 	String source = FileAccess::get_file_as_string(p_path, &err);
 	REQUIRE_MESSAGE(err == OK, vformat("Cannot read '%s'", p_path));
 
-	GDScriptParser parser;
+	RuztaParser parser;
 	err = parser.parse(source, p_path, true);
 	REQUIRE_MESSAGE(err == OK, vformat("Errors while parsing '%s'", p_path));
 
-	GDScriptAnalyzer analyzer(&parser);
+	RuztaAnalyzer analyzer(&parser);
 	err = analyzer.analyze();
 	REQUIRE_MESSAGE(err == OK, vformat("Errors while analyzing '%s'", p_path));
 }
@@ -318,10 +318,10 @@ inline LSP::Position lsp_pos(int line, int character) {
 	return p;
 }
 
-void test_position_roundtrip(LSP::Position p_lsp, GodotPosition p_gd, const PackedStringArray &p_lines) {
-	GodotPosition actual_gd = GodotPosition::from_lsp(p_lsp, p_lines);
-	CHECK_EQ(p_gd, actual_gd);
-	LSP::Position actual_lsp = p_gd.to_lsp(p_lines);
+void test_position_roundtrip(LSP::Position p_lsp, GodotPosition p_rz, const PackedStringArray &p_lines) {
+	GodotPosition actual_rz = GodotPosition::from_lsp(p_lsp, p_lines);
+	CHECK_EQ(p_rz, actual_rz);
+	LSP::Position actual_lsp = p_rz.to_lsp(p_lines);
 	CHECK_EQ(p_lsp, actual_lsp);
 }
 
@@ -334,7 +334,7 @@ void test_position_roundtrip(LSP::Position p_lsp, GodotPosition p_gd, const Pack
 // * Line & Char:
 //   * LSP: both 0-based
 //   * Godot: both 1-based
-TEST_SUITE("[Modules][GDScript][LSP][Editor]") {
+TEST_SUITE("[Modules][Ruzta][LSP][Editor]") {
 	TEST_CASE("Can convert positions to and from Godot") {
 		String code = R"(extends Node
 
@@ -347,71 +347,71 @@ func f():
 
 		SUBCASE("line after end") {
 			LSP::Position lsp = lsp_pos(7, 0);
-			GodotPosition gd(8, 1);
-			test_position_roundtrip(lsp, gd, lines);
+			GodotPosition rz(8, 1);
+			test_position_roundtrip(lsp, rz, lines);
 		}
 		SUBCASE("first char in first line") {
 			LSP::Position lsp = lsp_pos(0, 0);
-			GodotPosition gd(1, 1);
-			test_position_roundtrip(lsp, gd, lines);
+			GodotPosition rz(1, 1);
+			test_position_roundtrip(lsp, rz, lines);
 		}
 
 		SUBCASE("with tabs") {
 			// On `v` in `value` in `var value := ...`.
 			LSP::Position lsp = lsp_pos(5, 6);
-			GodotPosition gd(6, 13);
-			test_position_roundtrip(lsp, gd, lines);
+			GodotPosition rz(6, 13);
+			test_position_roundtrip(lsp, rz, lines);
 		}
 
 		SUBCASE("doesn't fail with column outside of character length") {
 			LSP::Position lsp = lsp_pos(2, 100);
 			GodotPosition::from_lsp(lsp, lines);
 
-			GodotPosition gd(3, 100);
-			gd.to_lsp(lines);
+			GodotPosition rz(3, 100);
+			rz.to_lsp(lines);
 		}
 
 		SUBCASE("doesn't fail with line outside of line length") {
 			LSP::Position lsp = lsp_pos(200, 100);
 			GodotPosition::from_lsp(lsp, lines);
 
-			GodotPosition gd(300, 100);
-			gd.to_lsp(lines);
+			GodotPosition rz(300, 100);
+			rz.to_lsp(lines);
 		}
 
 		SUBCASE("special case: zero column for root class") {
-			GodotPosition gd(1, 0);
+			GodotPosition rz(1, 0);
 			LSP::Position expected = lsp_pos(0, 0);
-			LSP::Position actual = gd.to_lsp(lines);
+			LSP::Position actual = rz.to_lsp(lines);
 			CHECK_EQ(actual, expected);
 		}
 		SUBCASE("special case: zero line and column for root class") {
-			GodotPosition gd(0, 0);
+			GodotPosition rz(0, 0);
 			LSP::Position expected = lsp_pos(0, 0);
-			LSP::Position actual = gd.to_lsp(lines);
+			LSP::Position actual = rz.to_lsp(lines);
 			CHECK_EQ(actual, expected);
 		}
 		SUBCASE("special case: negative line for root class") {
-			GodotPosition gd(-1, 0);
+			GodotPosition rz(-1, 0);
 			LSP::Position expected = lsp_pos(0, 0);
-			LSP::Position actual = gd.to_lsp(lines);
+			LSP::Position actual = rz.to_lsp(lines);
 			CHECK_EQ(actual, expected);
 		}
 		SUBCASE("special case: lines.length() + 1 for root class") {
-			GodotPosition gd(lines.size() + 1, 0);
+			GodotPosition rz(lines.size() + 1, 0);
 			LSP::Position expected = lsp_pos(lines.size(), 0);
-			LSP::Position actual = gd.to_lsp(lines);
+			LSP::Position actual = rz.to_lsp(lines);
 			CHECK_EQ(actual, expected);
 		}
 	}
 	TEST_CASE("[workspace][resolve_symbol]") {
 		EditorFileSystem *efs = memnew(EditorFileSystem);
-		GDScriptLanguageProtocol *proto = initialize(root);
+		RuztaLanguageProtocol *proto = initialize(root);
 		REQUIRE(proto);
-		Ref<GDScriptWorkspace> workspace = GDScriptLanguageProtocol::get_singleton()->get_workspace();
+		Ref<RuztaWorkspace> workspace = RuztaLanguageProtocol::get_singleton()->get_workspace();
 
 		{
-			String path = "res://lsp/local_variables.gd";
+			String path = "res://lsp/local_variables.rz";
 			assert_no_errors_in(path);
 			String uri = workspace->get_file_uri(path);
 			Vector<InlineTestData> all_test_data = read_tests(path);
@@ -430,7 +430,7 @@ func f():
 		}
 
 		SUBCASE("Can get correct ranges for indented variables") {
-			String path = "res://lsp/indentation.gd";
+			String path = "res://lsp/indentation.rz";
 			assert_no_errors_in(path);
 			String uri = workspace->get_file_uri(path);
 			Vector<InlineTestData> all_test_data = read_tests(path);
@@ -438,7 +438,7 @@ func f():
 		}
 
 		SUBCASE("Can get correct ranges for scopes") {
-			String path = "res://lsp/scopes.gd";
+			String path = "res://lsp/scopes.rz";
 			assert_no_errors_in(path);
 			String uri = workspace->get_file_uri(path);
 			Vector<InlineTestData> all_test_data = read_tests(path);
@@ -446,7 +446,7 @@ func f():
 		}
 
 		SUBCASE("Can get correct ranges for lambda") {
-			String path = "res://lsp/lambdas.gd";
+			String path = "res://lsp/lambdas.rz";
 			assert_no_errors_in(path);
 			String uri = workspace->get_file_uri(path);
 			Vector<InlineTestData> all_test_data = read_tests(path);
@@ -454,7 +454,7 @@ func f():
 		}
 
 		SUBCASE("Can get correct ranges for inner class") {
-			String path = "res://lsp/class.gd";
+			String path = "res://lsp/class.rz";
 			assert_no_errors_in(path);
 			String uri = workspace->get_file_uri(path);
 			Vector<InlineTestData> all_test_data = read_tests(path);
@@ -462,7 +462,7 @@ func f():
 		}
 
 		SUBCASE("Can get correct ranges for inner class") {
-			String path = "res://lsp/enums.gd";
+			String path = "res://lsp/enums.rz";
 			assert_no_errors_in(path);
 			String uri = workspace->get_file_uri(path);
 			Vector<InlineTestData> all_test_data = read_tests(path);
@@ -470,7 +470,7 @@ func f():
 		}
 
 		SUBCASE("Can get correct ranges for shadowing & shadowed variables") {
-			String path = "res://lsp/shadowing_initializer.gd";
+			String path = "res://lsp/shadowing_initializer.rz";
 			assert_no_errors_in(path);
 			String uri = workspace->get_file_uri(path);
 			Vector<InlineTestData> all_test_data = read_tests(path);
@@ -478,7 +478,7 @@ func f():
 		}
 
 		SUBCASE("Can get correct ranges for properties and getter/setter") {
-			String path = "res://lsp/properties.gd";
+			String path = "res://lsp/properties.rz";
 			assert_no_errors_in(path);
 			String uri = workspace->get_file_uri(path);
 			Vector<InlineTestData> all_test_data = read_tests(path);
@@ -491,19 +491,19 @@ func f():
 	}
 	TEST_CASE("[workspace][document_symbol]") {
 		EditorFileSystem *efs = memnew(EditorFileSystem);
-		GDScriptLanguageProtocol *proto = initialize(root);
+		RuztaLanguageProtocol *proto = initialize(root);
 		REQUIRE(proto);
 
 		SUBCASE("selectionRange of root class must be inside range") {
 			LocalVector<String> paths = {
-				"res://lsp/first_line_comment.gd", // Comment on first line
-				"res://lsp/first_line_class_name.gd", // class_name (and thus selection range) before extends
+				"res://lsp/first_line_comment.rz", // Comment on first line
+				"res://lsp/first_line_class_name.rz", // class_name (and thus selection range) before extends
 			};
 
 			for (const String &path : paths) {
 				assert_no_errors_in(path);
-				GDScriptLanguageProtocol::get_singleton()->get_workspace()->parse_local_script(path);
-				ExtendGDScriptParser *parser = GDScriptLanguageProtocol::get_singleton()->get_workspace()->parse_results[path];
+				RuztaLanguageProtocol::get_singleton()->get_workspace()->parse_local_script(path);
+				ExtendRuztaParser *parser = RuztaLanguageProtocol::get_singleton()->get_workspace()->parse_results[path];
 				REQUIRE(parser);
 				LSP::DocumentSymbol cls = parser->get_symbols();
 
@@ -513,10 +513,10 @@ func f():
 		}
 
 		SUBCASE("Documentation is correctly set") {
-			String path = "res://lsp/doc_comments.gd";
+			String path = "res://lsp/doc_comments.rz";
 			assert_no_errors_in(path);
-			GDScriptLanguageProtocol::get_singleton()->get_workspace()->parse_local_script(path);
-			ExtendGDScriptParser *parser = GDScriptLanguageProtocol::get_singleton()->get_workspace()->parse_results[path];
+			RuztaLanguageProtocol::get_singleton()->get_workspace()->parse_local_script(path);
+			ExtendRuztaParser *parser = RuztaLanguageProtocol::get_singleton()->get_workspace()->parse_results[path];
 			REQUIRE(parser);
 			LSP::DocumentSymbol cls = parser->get_symbols();
 			REQUIRE(cls.documentation.contains("brief"));
@@ -532,7 +532,7 @@ func f():
 	}
 }
 
-} // namespace GDScriptTests
+} // namespace RuztaTests
 
 #endif // MODULE_JSONRPC_ENABLED
 

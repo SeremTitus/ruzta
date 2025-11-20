@@ -1,0 +1,48 @@
+# Godot-specific
+.import/
+.export/
+.exported/
+.godot/
+*.import
+*.translation
+*.tmp
+
+# GDExtension build artifacts
+build/
+bin/
+*.o
+*.obj
+*.dll
+*.dylib
+*.so
+*.a
+*.lib
+*.exp
+*.pdb
+*.idb
+
+# Compiler/IDE files
+.vscode/
+.idea/
+.vs/
+CMakeFiles/
+CMakeCache.txt
+Makefile
+cmake_install.cmake
+*.user
+*.sln
+*.vcxproj*
+compile_commands.json
+
+# OS / general temp files
+.DS_Store
+Thumbs.db
+*.log
+*.swp
+*.bak
+
+# Python virtualenv (if used for build scripts)
+.venv/
+venv/
+
+.sconsign.dblite

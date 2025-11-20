@@ -1,0 +1,3 @@
+const A = preload("res://completion/class_a.notest.rz")
+
+var test_var: A.➡

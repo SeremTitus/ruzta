@@ -1,0 +1,11 @@
+const A = preload("res://completion/class_a.notest.rz")
+
+class LocalInnerClass:
+    const AInner = preload("res://completion/class_a.notest.rz")
+    enum LocalInnerInnerEnum {}
+    class LocalInnerInnerClass:
+        pass
+
+enum LocalInnerEnum {}
+
+var test_var: A➡

@@ -1,5 +1,5 @@
 def can_build(env, platform):
-    env.module_add_dependencies("gdscript", ["jsonrpc", "websocket"], True)
+    env.module_add_dependencies("ruzta", ["jsonrpc", "websocket"], True)
     return True
 
 
@@ -9,9 +9,9 @@ def configure(env):
 
 def get_doc_classes():
     return [
-        "@GDScript",
-        "GDScript",
-        "GDScriptSyntaxHighlighter",
+        "@Ruzta",
+        "Ruzta",
+        "RuztaSyntaxHighlighter",
     ]
 
 

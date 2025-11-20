@@ -1,0 +1,2 @@
+GDTEST_RUNTIME_ERROR
+>> SCRIPT ERROR at runtime/errors/rz_utility_function_wrong_arg.rz:3 on test(): Error calling Ruzta utility function "len()": Value of type 'Color' can't provide a length.

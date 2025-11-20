@@ -3,6 +3,6 @@ from misc.utility.scons_hints import *
 
 Import("env")
 
-import editor.template_builders as build_template_gd
+import editor.template_builders as build_template_rz
 
-env.CommandNoCache("templates.gen.h", Glob("*/*.gd"), env.Run(build_template_gd.make_templates))
+env.CommandNoCache("templates.gen.h", Glob("*/*.rz"), env.Run(build_template_rz.make_templates))

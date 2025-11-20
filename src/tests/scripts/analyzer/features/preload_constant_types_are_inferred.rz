@@ -1,0 +1,5 @@
+const Constants = preload("ruzta_to_preload.notest.rz")
+
+func test():
+	var a := Constants.A
+	print(a)

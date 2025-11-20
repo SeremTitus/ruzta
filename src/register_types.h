@@ -30,7 +30,9 @@
 
 #pragma once
 
-#include "modules/register_module_types.h"
+#include <godot_cpp/core/class_db.hpp> // original: modules/register_module_types.h
 
-void initialize_gdscript_module(ModuleInitializationLevel p_level);
-void uninitialize_gdscript_module(ModuleInitializationLevel p_level);
+using namespace godot;
+
+void initialize_ruzta_module(ModuleInitializationLevel p_level);
+void uninitialize_ruzta_module(ModuleInitializationLevel p_level);

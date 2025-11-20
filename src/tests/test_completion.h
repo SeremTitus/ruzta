@@ -32,25 +32,25 @@
 
 #ifdef TOOLS_ENABLED
 
-#include "tests/test_macros.h"
+// TODO: #include "tests/test_macros.h" // original: tests/test_macros.h
 
-#include "../gdscript.h"
-#include "gdscript_test_runner.h"
+#include "../ruzta.h"
+#include "ruzta_test_runner.h"
 
-#include "core/config/project_settings.h"
-#include "core/io/config_file.h"
-#include "core/io/dir_access.h"
-#include "core/io/file_access.h"
-#include "core/object/script_language.h"
-#include "core/variant/dictionary.h"
-#include "core/variant/variant.h"
-#include "editor/settings/editor_settings.h"
-#include "scene/resources/packed_scene.h"
-#include "scene/theme/theme_db.h"
+#include <godot_cpp/classes/project_settings.hpp> // original: core/config/project_settings.h
+#include <godot_cpp/classes/config_file.hpp> // original: core/io/config_file.h
+#include <godot_cpp/classes/dir_access.hpp> // original: core/io/dir_access.h
+#include <godot_cpp/classes/file_access.hpp> // original: core/io/file_access.h
+#include <godot_cpp/classes/script_language.hpp> // original: core/object/script_language.h
+#include <godot_cpp/variant/dictionary.hpp> // original: core/variant/dictionary.h
+#include <godot_cpp/variant/variant.hpp> // original: core/variant/variant.h
+// TODO: #include "editor/settings/editor_settings.h" // original: editor/settings/editor_settings.h
+#include <godot_cpp/classes/packed_scene.hpp> // original: scene/resources/packed_scene.h
+#include <godot_cpp/classes/theme_db.hpp> // original: scene/theme/theme_db.h
 
-#include "modules/modules_enabled.gen.h" // For mono.
+// TODO: #include "modules/modules_enabled.gen.h" // original: modules/modules_enabled.gen.h
 
-namespace GDScriptTests {
+namespace RuztaTests {
 
 static bool match_option(const Dictionary p_expected, const ScriptLanguage::CodeCompletionOption p_got) {
 	if (p_expected.get("display", p_got.display) != p_got.display) {
@@ -100,7 +100,7 @@ static void test_directory(const String &p_dir) {
 				continue;
 			}
 			test_directory(path.path_join(next));
-		} else if (next.ends_with(".gd") && !next.ends_with(".notest.gd")) {
+		} else if (next.ends_with(".rz") && !next.ends_with(".notest.rz")) {
 			Ref<FileAccess> acc = FileAccess::open(path.path_join(next), FileAccess::READ, &err);
 
 			if (err != OK) {
@@ -164,7 +164,7 @@ static void test_directory(const String &p_dir) {
 			ERR_PRINT_OFF;
 			if (owner != nullptr) {
 				// Remove the line which contains the sentinel char, to get a valid script.
-				Ref<GDScript> scr;
+				Ref<Ruzta> scr;
 				scr.instantiate();
 				int start = location;
 				int end = location;
@@ -184,7 +184,7 @@ static void test_directory(const String &p_dir) {
 				owner->set_script(scr);
 			}
 
-			GDScriptLanguage::get_singleton()->complete_code(code, res_path, owner, &options, forced, call_hint);
+			RuztaLanguage::get_singleton()->complete_code(code, res_path, owner, &options, forced, call_hint);
 			ERR_PRINT_ON;
 
 			String contains_excluded;
@@ -240,12 +240,12 @@ static void setup_global_classes(const String &p_dir) {
 	while (!next.is_empty()) {
 		if (dir->current_is_dir() && next != "." && next != "..") {
 			setup_global_classes(path.path_join(next));
-		} else if (next.ends_with(".gd")) {
+		} else if (next.ends_with(".rz")) {
 			String base_type;
 			bool is_abstract;
 			bool is_tool;
 			String source_file = path.path_join(next);
-			String class_name = GDScriptLanguage::get_singleton()->get_global_class_name(source_file, &base_type, nullptr, &is_abstract, &is_tool);
+			String class_name = RuztaLanguage::get_singleton()->get_global_class_name(source_file, &base_type, nullptr, &is_abstract, &is_tool);
 			if (class_name.is_empty()) {
 				next = dir->get_next();
 				continue;
@@ -253,24 +253,24 @@ static void setup_global_classes(const String &p_dir) {
 			ERR_FAIL_COND_MSG(ScriptServer::is_global_class(class_name),
 					"Class name \"" + class_name + "\" from \"" + source_file + "\" is already used in \"" + ScriptServer::get_global_class_path(class_name) + "\".");
 
-			ScriptServer::add_global_class(class_name, base_type, GDScriptLanguage::get_singleton()->get_name(), source_file, is_abstract, is_tool);
+			ScriptServer::add_global_class(class_name, base_type, RuztaLanguage::get_singleton()->get_name(), source_file, is_abstract, is_tool);
 		}
 		next = dir->get_next();
 	}
 }
 
-TEST_SUITE("[Modules][GDScript][Completion]") {
+TEST_SUITE("[Modules][Ruzta][Completion]") {
 	TEST_CASE("[Editor] Check suggestion list") {
 		// Set all editor settings that code completion relies on.
 		EditorSettings::get_singleton()->set_setting("text_editor/completion/use_single_quotes", false);
-		init_language("modules/gdscript/tests/scripts");
+		init_language("modules/ruzta/tests/scripts");
 
-		setup_global_classes("modules/gdscript/tests/scripts/completion");
-		test_directory("modules/gdscript/tests/scripts/completion");
+		setup_global_classes("modules/ruzta/tests/scripts/completion");
+		test_directory("modules/ruzta/tests/scripts/completion");
 
 		finish_language();
 	}
 }
-} // namespace GDScriptTests
+} // namespace RuztaTests
 
 #endif
