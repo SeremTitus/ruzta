@@ -2,10 +2,12 @@
 /*  ruzta_byte_codegen.cpp                                             */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -30,7 +32,7 @@
 
 #include "ruzta_byte_codegen.h"
 
-// TODO: #include "core/debugger/engine_debugger.h" // original: core/debugger/engine_debugger.h
+#include <godot_cpp/classes/engine_debugger.hpp> // original: core/debugger/engine_debugger.h
 
 uint32_t RuztaByteCodeGenerator::add_parameter(const StringName &p_name, bool p_is_optional, const RuztaDataType &p_type) {
 	function->_argument_count++;
@@ -240,7 +242,7 @@ RuztaFunction *RuztaByteCodeGenerator::write_end() {
 		function->operator_funcs.resize(operator_func_map.size());
 		function->_operator_funcs_count = function->operator_funcs.size();
 		function->_operator_funcs_ptr = function->operator_funcs.ptr();
-		for (const KeyValue<RuztaHelper::ValidatedOperatorEvaluator, int> &E : operator_func_map) {
+		for (const KeyValue<RuztaVariantExtension::ValidatedOperatorEvaluator, int> &E : operator_func_map) {
 			function->operator_funcs.write[E.value] = E.key;
 		}
 	} else {
@@ -252,7 +254,7 @@ RuztaFunction *RuztaByteCodeGenerator::write_end() {
 		function->setters.resize(setters_map.size());
 		function->_setters_count = function->setters.size();
 		function->_setters_ptr = function->setters.ptr();
-		for (const KeyValue<RuztaHelper::ValidatedSetter, int> &E : setters_map) {
+		for (const KeyValue<RuztaVariantExtension::ValidatedSetter, int> &E : setters_map) {
 			function->setters.write[E.value] = E.key;
 		}
 	} else {
@@ -264,7 +266,7 @@ RuztaFunction *RuztaByteCodeGenerator::write_end() {
 		function->getters.resize(getters_map.size());
 		function->_getters_count = function->getters.size();
 		function->_getters_ptr = function->getters.ptr();
-		for (const KeyValue<RuztaHelper::ValidatedGetter, int> &E : getters_map) {
+		for (const KeyValue<RuztaVariantExtension::ValidatedGetter, int> &E : getters_map) {
 			function->getters.write[E.value] = E.key;
 		}
 	} else {
@@ -276,7 +278,7 @@ RuztaFunction *RuztaByteCodeGenerator::write_end() {
 		function->keyed_setters.resize(keyed_setters_map.size());
 		function->_keyed_setters_count = function->keyed_setters.size();
 		function->_keyed_setters_ptr = function->keyed_setters.ptr();
-		for (const KeyValue<RuztaHelper::ValidatedKeyedSetter, int> &E : keyed_setters_map) {
+		for (const KeyValue<RuztaVariantExtension::ValidatedKeyedSetter, int> &E : keyed_setters_map) {
 			function->keyed_setters.write[E.value] = E.key;
 		}
 	} else {
@@ -288,7 +290,7 @@ RuztaFunction *RuztaByteCodeGenerator::write_end() {
 		function->keyed_getters.resize(keyed_getters_map.size());
 		function->_keyed_getters_count = function->keyed_getters.size();
 		function->_keyed_getters_ptr = function->keyed_getters.ptr();
-		for (const KeyValue<RuztaHelper::ValidatedKeyedGetter, int> &E : keyed_getters_map) {
+		for (const KeyValue<RuztaVariantExtension::ValidatedKeyedGetter, int> &E : keyed_getters_map) {
 			function->keyed_getters.write[E.value] = E.key;
 		}
 	} else {
@@ -300,7 +302,7 @@ RuztaFunction *RuztaByteCodeGenerator::write_end() {
 		function->indexed_setters.resize(indexed_setters_map.size());
 		function->_indexed_setters_count = function->indexed_setters.size();
 		function->_indexed_setters_ptr = function->indexed_setters.ptr();
-		for (const KeyValue<RuztaHelper::ValidatedIndexedSetter, int> &E : indexed_setters_map) {
+		for (const KeyValue<RuztaVariantExtension::ValidatedIndexedSetter, int> &E : indexed_setters_map) {
 			function->indexed_setters.write[E.value] = E.key;
 		}
 	} else {
@@ -312,7 +314,7 @@ RuztaFunction *RuztaByteCodeGenerator::write_end() {
 		function->indexed_getters.resize(indexed_getters_map.size());
 		function->_indexed_getters_count = function->indexed_getters.size();
 		function->_indexed_getters_ptr = function->indexed_getters.ptr();
-		for (const KeyValue<RuztaHelper::ValidatedIndexedGetter, int> &E : indexed_getters_map) {
+		for (const KeyValue<RuztaVariantExtension::ValidatedIndexedGetter, int> &E : indexed_getters_map) {
 			function->indexed_getters.write[E.value] = E.key;
 		}
 	} else {
@@ -324,7 +326,7 @@ RuztaFunction *RuztaByteCodeGenerator::write_end() {
 		function->builtin_methods.resize(builtin_method_map.size());
 		function->_builtin_methods_ptr = function->builtin_methods.ptr();
 		function->_builtin_methods_count = builtin_method_map.size();
-		for (const KeyValue<RuztaHelper::ValidatedBuiltInMethod, int> &E : builtin_method_map) {
+		for (const KeyValue<RuztaVariantExtension::ValidatedBuiltInMethod, int> &E : builtin_method_map) {
 			function->builtin_methods.write[E.value] = E.key;
 		}
 	} else {
@@ -336,7 +338,7 @@ RuztaFunction *RuztaByteCodeGenerator::write_end() {
 		function->constructors.resize(constructors_map.size());
 		function->_constructors_ptr = function->constructors.ptr();
 		function->_constructors_count = constructors_map.size();
-		for (const KeyValue<RuztaHelper::ValidatedConstructor, int> &E : constructors_map) {
+		for (const KeyValue<RuztaVariantExtension::ValidatedConstructor, int> &E : constructors_map) {
 			function->constructors.write[E.value] = E.key;
 		}
 	} else {
@@ -348,7 +350,7 @@ RuztaFunction *RuztaByteCodeGenerator::write_end() {
 		function->utilities.resize(utilities_map.size());
 		function->_utilities_ptr = function->utilities.ptr();
 		function->_utilities_count = utilities_map.size();
-		for (const KeyValue<RuztaHelper::ValidatedUtilityFunction, int> &E : utilities_map) {
+		for (const KeyValue<RuztaVariantExtension::ValidatedUtilityFunction, int> &E : utilities_map) {
 			function->utilities.write[E.value] = E.key;
 		}
 	} else {
@@ -554,7 +556,7 @@ void RuztaByteCodeGenerator::write_type_adjust(const Address &p_target, Variant:
 void RuztaByteCodeGenerator::write_unary_operator(const Address &p_target, Variant::Operator p_operator, const Address &p_left_operand) {
 	if (HAS_BUILTIN_TYPE(p_left_operand)) {
 		// Gather specific operator.
-		RuztaHelper::ValidatedOperatorEvaluator op_func = Variant::get_validated_operator_evaluator(p_operator, p_left_operand.type.builtin_type, Variant::NIL);
+		RuztaVariantExtension::ValidatedOperatorEvaluator op_func = RuztaVariantExtension::get_validated_operator_evaluator(p_operator, p_left_operand.type.builtin_type, Variant::NIL);
 
 		append_opcode(RuztaFunction::OPCODE_OPERATOR_VALIDATED);
 		append(p_left_operand);
@@ -562,7 +564,7 @@ void RuztaByteCodeGenerator::write_unary_operator(const Address &p_target, Varia
 		append(p_target);
 		append(op_func);
 #ifdef DEBUG_ENABLED
-		add_debug_name(operator_names, get_operation_pos(op_func), Variant::get_operator_name(p_operator));
+		add_debug_name(operator_names, get_operation_pos(op_func), RuztaVariantExtension::get_operator_name(p_operator));
 #endif
 		return;
 	}
@@ -575,7 +577,7 @@ void RuztaByteCodeGenerator::write_unary_operator(const Address &p_target, Varia
 	append(p_operator);
 	append(0); // Signature storage.
 	append(0); // Return type storage.
-	constexpr int _pointer_size = sizeof(RuztaHelper::ValidatedOperatorEvaluator) / sizeof(*(opcodes.ptr()));
+	constexpr int _pointer_size = sizeof(RuztaVariantExtension::ValidatedOperatorEvaluator) / sizeof(*(opcodes.ptr()));
 	for (int i = 0; i < _pointer_size; i++) {
 		append(0); // Space for function pointer.
 	}
@@ -603,7 +605,7 @@ void RuztaByteCodeGenerator::write_binary_operator(const Address &p_target, Vari
 
 	if (valid) {
 		if (p_target.mode == Address::TEMPORARY) {
-			Variant::Type result_type = Variant::get_operator_return_type(p_operator, p_left_operand.type.builtin_type, p_right_operand.type.builtin_type);
+			Variant::Type result_type = RuztaVariantExtension::get_operator_return_type(p_operator, p_left_operand.type.builtin_type, p_right_operand.type.builtin_type);
 			Variant::Type temp_type = temporaries[p_target.address].type;
 			if (result_type != temp_type) {
 				write_type_adjust(p_target, result_type);
@@ -611,7 +613,7 @@ void RuztaByteCodeGenerator::write_binary_operator(const Address &p_target, Vari
 		}
 
 		// Gather specific operator.
-		RuztaHelper::ValidatedOperatorEvaluator op_func = Variant::get_validated_operator_evaluator(p_operator, p_left_operand.type.builtin_type, p_right_operand.type.builtin_type);
+		RuztaVariantExtension::ValidatedOperatorEvaluator op_func = RuztaVariantExtension::get_validated_operator_evaluator(p_operator, p_left_operand.type.builtin_type, p_right_operand.type.builtin_type);
 
 		append_opcode(RuztaFunction::OPCODE_OPERATOR_VALIDATED);
 		append(p_left_operand);
@@ -619,7 +621,7 @@ void RuztaByteCodeGenerator::write_binary_operator(const Address &p_target, Vari
 		append(p_target);
 		append(op_func);
 #ifdef DEBUG_ENABLED
-		add_debug_name(operator_names, get_operation_pos(op_func), Variant::get_operator_name(p_operator));
+		add_debug_name(operator_names, get_operation_pos(op_func), RuztaVariantExtension::get_operator_name(p_operator));
 #endif
 		return;
 	}
@@ -632,7 +634,7 @@ void RuztaByteCodeGenerator::write_binary_operator(const Address &p_target, Vari
 	append(p_operator);
 	append(0); // Signature storage.
 	append(0); // Return type storage.
-	constexpr int _pointer_size = sizeof(RuztaHelper::ValidatedOperatorEvaluator) / sizeof(*(opcodes.ptr()));
+	constexpr int _pointer_size = sizeof(RuztaVariantExtension::ValidatedOperatorEvaluator) / sizeof(*(opcodes.ptr()));
 	for (int i = 0; i < _pointer_size; i++) {
 		append(0); // Space for function pointer.
 	}
@@ -788,18 +790,18 @@ void RuztaByteCodeGenerator::write_end_ternary() {
 
 void RuztaByteCodeGenerator::write_set(const Address &p_target, const Address &p_index, const Address &p_source) {
 	if (HAS_BUILTIN_TYPE(p_target)) {
-		if (IS_BUILTIN_TYPE(p_index, Variant::INT) && Variant::get_member_validated_indexed_setter(p_target.type.builtin_type) &&
-				IS_BUILTIN_TYPE(p_source, Variant::get_indexed_element_type(p_target.type.builtin_type))) {
+		if (IS_BUILTIN_TYPE(p_index, Variant::INT) && RuztaVariantExtension::get_member_validated_indexed_setter(p_target.type.builtin_type) &&
+				IS_BUILTIN_TYPE(p_source, RuztaVariantExtension::get_indexed_element_type(p_target.type.builtin_type))) {
 			// Use indexed setter instead.
-			RuztaHelper::ValidatedIndexedSetter setter = Variant::get_member_validated_indexed_setter(p_target.type.builtin_type);
+			RuztaVariantExtension::ValidatedIndexedSetter setter = RuztaVariantExtension::get_member_validated_indexed_setter(p_target.type.builtin_type);
 			append_opcode(RuztaFunction::OPCODE_SET_INDEXED_VALIDATED);
 			append(p_target);
 			append(p_index);
 			append(p_source);
 			append(setter);
 			return;
-		} else if (Variant::get_member_validated_keyed_setter(p_target.type.builtin_type)) {
-			RuztaHelper::ValidatedKeyedSetter setter = Variant::get_member_validated_keyed_setter(p_target.type.builtin_type);
+		} else if (RuztaVariantExtension::get_member_validated_keyed_setter(p_target.type.builtin_type)) {
+			RuztaVariantExtension::ValidatedKeyedSetter setter = RuztaVariantExtension::get_member_validated_keyed_setter(p_target.type.builtin_type);
 			append_opcode(RuztaFunction::OPCODE_SET_KEYED_VALIDATED);
 			append(p_target);
 			append(p_index);
@@ -817,17 +819,17 @@ void RuztaByteCodeGenerator::write_set(const Address &p_target, const Address &p
 
 void RuztaByteCodeGenerator::write_get(const Address &p_target, const Address &p_index, const Address &p_source) {
 	if (HAS_BUILTIN_TYPE(p_source)) {
-		if (IS_BUILTIN_TYPE(p_index, Variant::INT) && Variant::get_member_validated_indexed_getter(p_source.type.builtin_type)) {
+		if (IS_BUILTIN_TYPE(p_index, Variant::INT) && RuztaVariantExtension::get_member_validated_indexed_getter(p_source.type.builtin_type)) {
 			// Use indexed getter instead.
-			RuztaHelper::ValidatedIndexedGetter getter = Variant::get_member_validated_indexed_getter(p_source.type.builtin_type);
+			RuztaVariantExtension::ValidatedIndexedGetter getter = RuztaVariantExtension::get_member_validated_indexed_getter(p_source.type.builtin_type);
 			append_opcode(RuztaFunction::OPCODE_GET_INDEXED_VALIDATED);
 			append(p_source);
 			append(p_index);
 			append(p_target);
 			append(getter);
 			return;
-		} else if (Variant::get_member_validated_keyed_getter(p_source.type.builtin_type)) {
-			RuztaHelper::ValidatedKeyedGetter getter = Variant::get_member_validated_keyed_getter(p_source.type.builtin_type);
+		} else if (RuztaVariantExtension::get_member_validated_keyed_getter(p_source.type.builtin_type)) {
+			RuztaVariantExtension::ValidatedKeyedGetter getter = RuztaVariantExtension::get_member_validated_keyed_getter(p_source.type.builtin_type);
 			append_opcode(RuztaFunction::OPCODE_GET_KEYED_VALIDATED);
 			append(p_source);
 			append(p_index);
@@ -843,9 +845,9 @@ void RuztaByteCodeGenerator::write_get(const Address &p_target, const Address &p
 }
 
 void RuztaByteCodeGenerator::write_set_named(const Address &p_target, const StringName &p_name, const Address &p_source) {
-	if (HAS_BUILTIN_TYPE(p_target) && Variant::get_member_validated_setter(p_target.type.builtin_type, p_name) &&
-			IS_BUILTIN_TYPE(p_source, Variant::get_member_type(p_target.type.builtin_type, p_name))) {
-		RuztaHelper::ValidatedSetter setter = Variant::get_member_validated_setter(p_target.type.builtin_type, p_name);
+	if (HAS_BUILTIN_TYPE(p_target) && RuztaVariantExtension::get_member_validated_setter(p_target.type.builtin_type, p_name) &&
+			IS_BUILTIN_TYPE(p_source, RuztaVariantExtension::get_member_type(p_target.type.builtin_type, p_name))) {
+		RuztaVariantExtension::ValidatedSetter setter = RuztaVariantExtension::get_member_validated_setter(p_target.type.builtin_type, p_name);
 		append_opcode(RuztaFunction::OPCODE_SET_NAMED_VALIDATED);
 		append(p_target);
 		append(p_source);
@@ -862,8 +864,8 @@ void RuztaByteCodeGenerator::write_set_named(const Address &p_target, const Stri
 }
 
 void RuztaByteCodeGenerator::write_get_named(const Address &p_target, const StringName &p_name, const Address &p_source) {
-	if (HAS_BUILTIN_TYPE(p_source) && Variant::get_member_validated_getter(p_source.type.builtin_type, p_name)) {
-		RuztaHelper::ValidatedGetter getter = Variant::get_member_validated_getter(p_source.type.builtin_type, p_name);
+	if (HAS_BUILTIN_TYPE(p_source) && RuztaVariantExtension::get_member_validated_getter(p_source.type.builtin_type, p_name)) {
+		RuztaVariantExtension::ValidatedGetter getter = RuztaVariantExtension::get_member_validated_getter(p_source.type.builtin_type, p_name);
 		append_opcode(RuztaFunction::OPCODE_GET_NAMED_VALIDATED);
 		append(p_source);
 		append(p_target);
@@ -1136,12 +1138,12 @@ void RuztaByteCodeGenerator::write_call_ruzta_utility(const Address &p_target, c
 
 void RuztaByteCodeGenerator::write_call_utility(const Address &p_target, const StringName &p_function, const Vector<Address> &p_arguments) {
 	bool is_validated = true;
-	if (Variant::is_utility_function_vararg(p_function)) {
+	if (RuztaVariantExtension::is_utility_function_vararg(p_function)) {
 		is_validated = false; // Vararg needs runtime checks, can't use validated call.
-	} else if (p_arguments.size() == Variant::get_utility_function_argument_count(p_function)) {
+	} else if (p_arguments.size() == RuztaVariantExtension::get_utility_function_argument_count(p_function)) {
 		bool all_types_exact = true;
 		for (int i = 0; i < p_arguments.size(); i++) {
-			if (!IS_BUILTIN_TYPE(p_arguments[i], Variant::get_utility_function_argument_type(p_function, i))) {
+			if (!IS_BUILTIN_TYPE(p_arguments[i], RuztaVariantExtension::get_utility_function_argument_type(p_function, i))) {
 				all_types_exact = false;
 				break;
 			}
@@ -1151,7 +1153,7 @@ void RuztaByteCodeGenerator::write_call_utility(const Address &p_target, const S
 	}
 
 	if (is_validated) {
-		Variant::Type result_type = Variant::has_utility_function_return_value(p_function) ? Variant::get_utility_function_return_type(p_function) : Variant::NIL;
+		Variant::Type result_type = RuztaVariantExtension::has_utility_function_return_value(p_function) ? RuztaVariantExtension::get_utility_function_return_type(p_function) : Variant::NIL;
 		CallTarget ct = get_call_target(p_target, result_type);
 		Variant::Type temp_type = temporaries[ct.target.address].type;
 		if (result_type != temp_type) {
@@ -1163,10 +1165,10 @@ void RuztaByteCodeGenerator::write_call_utility(const Address &p_target, const S
 		}
 		append(ct.target);
 		append(p_arguments.size());
-		append(Variant::get_validated_utility_function(p_function));
+		append(RuztaVariantExtension::get_validated_utility_function(p_function));
 		ct.cleanup();
 #ifdef DEBUG_ENABLED
-		add_debug_name(utilities_names, get_utility_pos(Variant::get_validated_utility_function(p_function)), p_function);
+		add_debug_name(utilities_names, get_utility_pos(RuztaVariantExtension::get_validated_utility_function(p_function)), p_function);
 #endif
 	} else {
 		append_opcode_and_argcount(RuztaFunction::OPCODE_CALL_UTILITY, 1 + p_arguments.size());
@@ -1185,12 +1187,12 @@ void RuztaByteCodeGenerator::write_call_builtin_type(const Address &p_target, co
 	bool is_validated = false;
 
 	// Check if all types are correct.
-	if (Variant::is_builtin_method_vararg(p_type, p_method)) {
+	if (RuztaVariantExtension::is_builtin_method_vararg(p_type, p_method)) {
 		is_validated = false; // Vararg needs runtime checks, can't use validated call.
-	} else if (p_arguments.size() == Variant::get_builtin_method_argument_count(p_type, p_method)) {
+	} else if (p_arguments.size() == RuztaVariantExtension::get_builtin_method_argument_count(p_type, p_method)) {
 		bool all_types_exact = true;
 		for (int i = 0; i < p_arguments.size(); i++) {
-			if (!IS_BUILTIN_TYPE(p_arguments[i], Variant::get_builtin_method_argument_type(p_type, p_method, i))) {
+			if (!IS_BUILTIN_TYPE(p_arguments[i], RuztaVariantExtension::get_builtin_method_argument_type(p_type, p_method, i))) {
 				all_types_exact = false;
 				break;
 			}
@@ -1218,7 +1220,7 @@ void RuztaByteCodeGenerator::write_call_builtin_type(const Address &p_target, co
 		return;
 	}
 
-	Variant::Type result_type = Variant::get_builtin_method_return_type(p_type, p_method);
+	Variant::Type result_type = RuztaVariantExtension::get_builtin_method_return_type(p_type, p_method);
 	CallTarget ct = get_call_target(p_target, result_type);
 	Variant::Type temp_type = temporaries[ct.target.address].type;
 	if (result_type != temp_type) {
@@ -1233,11 +1235,11 @@ void RuztaByteCodeGenerator::write_call_builtin_type(const Address &p_target, co
 	append(p_base);
 	append(ct.target);
 	append(p_arguments.size());
-	append(Variant::get_validated_builtin_method(p_type, p_method));
+	append(RuztaVariantExtension::get_validated_builtin_method(p_type, p_method));
 	ct.cleanup();
 
 #ifdef DEBUG_ENABLED
-	add_debug_name(builtin_methods_names, get_builtin_method_pos(Variant::get_validated_builtin_method(p_type, p_method)), p_method);
+	add_debug_name(builtin_methods_names, get_builtin_method_pos(RuztaVariantExtension::get_validated_builtin_method(p_type, p_method)), p_method);
 #endif
 }
 
@@ -1404,13 +1406,13 @@ void RuztaByteCodeGenerator::write_construct(const Address &p_target, Variant::T
 	}
 	if (all_have_type) {
 		int valid_constructor = -1;
-		for (int i = 0; i < Variant::get_constructor_count(p_type); i++) {
-			if (Variant::get_constructor_argument_count(p_type, i) != p_arguments.size()) {
+		for (int i = 0; i < RuztaVariantExtension::get_constructor_count(p_type); i++) {
+			if (RuztaVariantExtension::get_constructor_argument_count(p_type, i) != p_arguments.size()) {
 				continue;
 			}
 			int types_correct = true;
 			for (int j = 0; j < arg_types.size(); j++) {
-				if (arg_types[j] != Variant::get_constructor_argument_type(p_type, i, j)) {
+				if (arg_types[j] != RuztaVariantExtension::get_constructor_argument_type(p_type, i, j)) {
 					types_correct = false;
 					break;
 				}
@@ -1428,10 +1430,10 @@ void RuztaByteCodeGenerator::write_construct(const Address &p_target, Variant::T
 			CallTarget ct = get_call_target(p_target);
 			append(ct.target);
 			append(p_arguments.size());
-			append(Variant::get_validated_constructor(p_type, valid_constructor));
+			append(RuztaVariantExtension::get_validated_constructor(p_type, valid_constructor));
 			ct.cleanup();
 #ifdef DEBUG_ENABLED
-			add_debug_name(constructors_names, get_constructor_pos(Variant::get_validated_constructor(p_type, valid_constructor)), Variant::get_type_name(p_type));
+			add_debug_name(constructors_names, get_constructor_pos(RuztaVariantExtension::get_validated_constructor(p_type, valid_constructor)), Variant::get_type_name(p_type));
 #endif
 			return;
 		}

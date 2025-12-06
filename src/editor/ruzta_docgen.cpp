@@ -2,10 +2,12 @@
 /*  ruzta_docgen.cpp                                                   */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -139,7 +141,7 @@ void RuztaDocGen::_doctype_from_gdtype(const GDType &p_gdtype, String &r_type, S
 			r_type = "int";
 			r_enum = String(p_gdtype.native_type).replace("::", ".");
 			if (r_enum.begins_with("res://")) {
-				int dot_pos = r_enum.rfind_char('.');
+				int dot_pos = r_enum.rfind(String('.'));
 				if (dot_pos >= 0) {
 					r_enum = _get_script_name(r_enum.left(dot_pos)) + r_enum.substr(dot_pos);
 				} else {
@@ -326,7 +328,7 @@ String RuztaDocGen::docvalue_from_expression(const GDP::ExpressionNode *p_expres
 void RuztaDocGen::_generate_docs(Ruzta *p_script, const GDP::ClassNode *p_class) {
 	p_script->_clear_doc();
 
-	DocData::ClassDoc &doc = p_script->doc;
+	RuztaDocData::ClassDoc &doc = p_script->doc;
 
 	doc.is_script_doc = true;
 
@@ -356,7 +358,7 @@ void RuztaDocGen::_generate_docs(Ruzta *p_script, const GDP::ClassNode *p_class)
 	doc.brief_description = p_class->doc_data.brief;
 	doc.description = p_class->doc_data.description;
 	for (const Pair<String, String> &p : p_class->doc_data.tutorials) {
-		DocData::TutorialDoc td;
+		RuztaDocData::TutorialDoc td;
 		td.title = p.first;
 		td.link = p.second;
 		doc.tutorials.append(td);
@@ -385,7 +387,7 @@ void RuztaDocGen::_generate_docs(Ruzta *p_script, const GDP::ClassNode *p_class)
 
 				p_script->member_lines[const_name] = m_const->start_line;
 
-				DocData::ConstantDoc const_doc;
+				RuztaDocData::ConstantDoc const_doc;
 				const_doc.name = const_name;
 				const_doc.value = _docvalue_from_variant(m_const->initializer->reduced_value);
 				const_doc.is_value_valid = true;
@@ -404,7 +406,7 @@ void RuztaDocGen::_generate_docs(Ruzta *p_script, const GDP::ClassNode *p_class)
 
 				p_script->member_lines[func_name] = m_func->start_line;
 
-				DocData::MethodDoc method_doc;
+				RuztaDocData::MethodDoc method_doc;
 				method_doc.name = func_name;
 				method_doc.description = m_func->doc_data.description;
 				method_doc.is_deprecated = m_func->doc_data.is_deprecated;
@@ -446,7 +448,7 @@ void RuztaDocGen::_generate_docs(Ruzta *p_script, const GDP::ClassNode *p_class)
 				}
 
 				for (const GDP::ParameterNode *p : m_func->parameters) {
-					DocData::ArgumentDoc arg_doc;
+					RuztaDocData::ArgumentDoc arg_doc;
 					arg_doc.name = p->identifier->name;
 					_doctype_from_gdtype(p->get_datatype(), arg_doc.type, arg_doc.enumeration);
 					if (p->initializer != nullptr) {
@@ -464,7 +466,7 @@ void RuztaDocGen::_generate_docs(Ruzta *p_script, const GDP::ClassNode *p_class)
 
 				p_script->member_lines[signal_name] = m_signal->start_line;
 
-				DocData::MethodDoc signal_doc;
+				RuztaDocData::MethodDoc signal_doc;
 				signal_doc.name = signal_name;
 				signal_doc.description = m_signal->doc_data.description;
 				signal_doc.is_deprecated = m_signal->doc_data.is_deprecated;
@@ -473,7 +475,7 @@ void RuztaDocGen::_generate_docs(Ruzta *p_script, const GDP::ClassNode *p_class)
 				signal_doc.experimental_message = m_signal->doc_data.experimental_message;
 
 				for (const GDP::ParameterNode *p : m_signal->parameters) {
-					DocData::ArgumentDoc arg_doc;
+					RuztaDocData::ArgumentDoc arg_doc;
 					arg_doc.name = p->identifier->name;
 					_doctype_from_gdtype(p->get_datatype(), arg_doc.type, arg_doc.enumeration);
 					signal_doc.arguments.push_back(arg_doc);
@@ -488,7 +490,7 @@ void RuztaDocGen::_generate_docs(Ruzta *p_script, const GDP::ClassNode *p_class)
 
 				p_script->member_lines[var_name] = m_var->start_line;
 
-				DocData::PropertyDoc prop_doc;
+				RuztaDocData::PropertyDoc prop_doc;
 				prop_doc.name = var_name;
 				prop_doc.description = m_var->doc_data.description;
 				prop_doc.is_deprecated = m_var->doc_data.is_deprecated;
@@ -533,7 +535,7 @@ void RuztaDocGen::_generate_docs(Ruzta *p_script, const GDP::ClassNode *p_class)
 
 				p_script->member_lines[name] = m_enum->start_line;
 
-				DocData::EnumDoc enum_doc;
+				RuztaDocData::EnumDoc enum_doc;
 				enum_doc.description = m_enum->doc_data.description;
 				enum_doc.is_deprecated = m_enum->doc_data.is_deprecated;
 				enum_doc.deprecated_message = m_enum->doc_data.deprecated_message;
@@ -542,7 +544,7 @@ void RuztaDocGen::_generate_docs(Ruzta *p_script, const GDP::ClassNode *p_class)
 				doc.enums[name] = enum_doc;
 
 				for (const GDP::EnumNode::Value &val : m_enum->values) {
-					DocData::ConstantDoc const_doc;
+					RuztaDocData::ConstantDoc const_doc;
 					const_doc.name = val.identifier->name;
 					const_doc.value = _docvalue_from_variant(val.value);
 					const_doc.is_value_valid = true;
@@ -565,7 +567,7 @@ void RuztaDocGen::_generate_docs(Ruzta *p_script, const GDP::ClassNode *p_class)
 
 				p_script->member_lines[name] = m_enum_val.identifier->start_line;
 
-				DocData::ConstantDoc const_doc;
+				RuztaDocData::ConstantDoc const_doc;
 				const_doc.name = name;
 				const_doc.value = _docvalue_from_variant(m_enum_val.value);
 				const_doc.is_value_valid = true;

@@ -2,10 +2,12 @@
 /*  ruzta_rpc_callable.cpp                                             */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -33,6 +35,7 @@
 #include <godot_cpp/classes/script_language.hpp> // original: core/object/script_language.h
 #include <godot_cpp/templates/hashfuncs.hpp> // original: core/templates/hashfuncs.h
 #include <godot_cpp/classes/node.hpp> // original: scene/main/node.h
+#include <godot_cpp/classes/script.hpp> // original:
 
 bool RuztaRPCCallable::compare_equal(const CallableCustom *p_a, const CallableCustom *p_b) {
 	return p_a->hash() == p_b->hash();
@@ -50,10 +53,11 @@ String RuztaRPCCallable::get_as_text() const {
 	String class_name = object->get_class();
 	Ref<Script> script = object->get_script();
 	if (script.is_valid()) {
+		String script_path = script->get_path(); 
 		if (!script->get_global_name().is_empty()) {
 			class_name += "(" + script->get_global_name() + ")";
-		} else if (script->get_path().is_resource_file()) {
-			class_name += "(" + script->get_path().get_file() + ")";
+		} else if (script_path.begins_with("res://") && script_path.find("::") == -1) {
+			class_name += "(" + script_path.get_file() + ")";
 		}
 	}
 	return class_name + "::" + String(method) + " (rpc)";
@@ -68,7 +72,7 @@ CallableCustom::CompareLessFunc RuztaRPCCallable::get_compare_less_func() const 
 }
 
 ObjectID RuztaRPCCallable::get_object() const {
-	return object->get_instance_id();
+	return ObjectID(object->get_instance_id());
 }
 
 StringName RuztaRPCCallable::get_method() const {
@@ -76,7 +80,8 @@ StringName RuztaRPCCallable::get_method() const {
 }
 
 int RuztaRPCCallable::get_argument_count(bool &r_is_valid) const {
-	return object->get_method_argument_count(method, &r_is_valid);
+	r_is_valid = object->has_method(method);
+	return object->get_method_argument_count(method);
 }
 
 void RuztaRPCCallable::call(const Variant **p_arguments, int p_argcount, Variant &r_return_value, GDExtensionCallError &r_call_error) const {

@@ -2,10 +2,12 @@
 /*  ruzta_docgen.h                                                     */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -32,7 +34,7 @@
 
 #include "../ruzta_parser.h"
 
-// TODO: #include "core/doc_data.h" // original: core/doc_data.h
+#include "../ruzta_variant/doc_data.h" // original: doc_data.h
 
 class RuztaDocGen {
 	using GDP = RuztaParser;

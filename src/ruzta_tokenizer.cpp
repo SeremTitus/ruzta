@@ -2,10 +2,12 @@
 /*  ruzta_tokenizer.cpp                                                */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -30,15 +32,19 @@
 
 #include "ruzta_tokenizer.h"
 
-// TODO: #include "core/error/error_macros.h" // original: core/error/error_macros.h
-// TODO: #include "core/string/char_utils.h" // original: core/string/char_utils.h
+#ifdef TOOLS_ENABLED
+#include "ruzta_editor_plugin.h"
+#endif
+
+#include <godot_cpp/core/error_macros.hpp> // original: core/error/error_macros.h
+#include <godot_cpp/variant/char_utils.hpp> // original: core/string/char_utils.h
 
 #ifdef DEBUG_ENABLED
-// TODO: #include "servers/text/text_server.h" // original: servers/text/text_server.h
+#include <godot_cpp/classes/text_server.hpp> // original: servers/text/text_server.h
 #endif
 
 #ifdef TOOLS_ENABLED
-// TODO: #include "editor/settings/editor_settings.h" // original: editor/settings/editor_settings.h
+#include <godot_cpp/classes/editor_settings.hpp> // original: editor/settings/editor_settings.h
 #endif
 
 static const char *token_names[] = {
@@ -268,7 +274,7 @@ String RuztaTokenizer::get_token_name(Token::Type p_token_type) {
 
 void RuztaTokenizerText::set_source_code(const String &p_source_code) {
 	source = p_source_code;
-	_source = source.get_data();
+	_source = source.ptrw();
 	_current = _source;
 	_start = _source;
 	line = 1;
@@ -1641,8 +1647,8 @@ RuztaTokenizer::Token RuztaTokenizerText::scan() {
 
 RuztaTokenizerText::RuztaTokenizerText() {
 #ifdef TOOLS_ENABLED
-	if (EditorSettings::get_singleton()) {
-		tab_size = EditorSettings::get_singleton()->get_setting("text_editor/behavior/indent/size");
+	if (RuztaEditorPlugin::get_editor_settings() == nullptr) {
+		tab_size = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/behavior/indent/size");
 	}
 #endif // TOOLS_ENABLED
 #ifdef DEBUG_ENABLED

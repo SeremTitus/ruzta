@@ -2,10 +2,12 @@
 /*  ruzta_highlighter.cpp                                              */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -34,8 +36,8 @@
 #include "../ruzta_tokenizer.h"
 
 #include <godot_cpp/classes/project_settings.hpp> // original: core/config/project_settings.h
-#include <godot_cpp/core/constants.hpp> // original: core/core_constants.h
-// TODO: #include "editor/settings/editor_settings.h" // original: editor/settings/editor_settings.h
+#include "ruzta_variant/core_constants.h" // original: core/core_constants.h
+#include <godot_cpp/classes/editor_settings.hpp> // original: editor/settings/editor_settings.h
 // TODO: #include "editor/themes/editor_theme_manager.h" // original: editor/themes/editor_theme_manager.h
 #include <godot_cpp/classes/text_edit.hpp> // original: scene/gui/text_edit.h
 
@@ -174,7 +176,7 @@ Dictionary RuztaSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_line
 							}
 							if (from + end_key_length > line_length) {
 								// If it's key length and there is a '\', dont skip to highlight esc chars.
-								if (str.find_char('\\', from) >= 0) {
+								if (str.find(String('\\'), from) >= 0) {
 									break;
 								}
 							}
@@ -249,7 +251,7 @@ Dictionary RuztaSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_line
 							if (line_length - from < end_key_length) {
 								// Don't break if '\' to highlight escape sequences,
 								// and '%' and '{' to highlight placeholders.
-								if (str.find_char('\\', from) == -1 && str.find_char('%', from) == -1 && str.find_char('{', from) == -1) {
+								if (str.find(String('\\'), from) == -1 && str.find(String('%'), from) == -1 && str.find(String('{'), from) == -1) {
 									break;
 								}
 							}
@@ -758,20 +760,19 @@ void RuztaSyntaxHighlighter::_update_cache() {
 	color_regions.clear();
 	color_region_cache.clear();
 
-	font_color = text_edit->get_theme_color(SceneStringName(font_color));
-	symbol_color = EDITOR_GET("text_editor/theme/highlighting/symbol_color");
-	function_color = EDITOR_GET("text_editor/theme/highlighting/function_color");
-	number_color = EDITOR_GET("text_editor/theme/highlighting/number_color");
-	member_variable_color = EDITOR_GET("text_editor/theme/highlighting/member_variable_color");
+	font_color = text_edit->get_theme_color(StringName("font_color"));
+	symbol_color = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/symbol_color");
+	function_color = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/function_color");
+	number_color = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/number_color");
+	member_variable_color = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/member_variable_color");
 
 	/* Engine types. */
-	const Color types_color = EDITOR_GET("text_editor/theme/highlighting/engine_type_color");
-	LocalVector<StringName> types;
-	ClassDB::get_class_list(types);
+	const Color types_color = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/engine_type_color");
+	PackedStringArray types = ClassDB::get_class_list();
 	for (const StringName &type : types) {
-		if (ClassDB::is_class_exposed(type)) {
+		// if (ClassDB::is_class_exposed(type)) {
 			class_names[type] = types_color;
-		}
+		// }
 	}
 
 	/* Global enums. */
@@ -782,7 +783,7 @@ void RuztaSyntaxHighlighter::_update_cache() {
 	}
 
 	/* User types. */
-	const Color usertype_color = EDITOR_GET("text_editor/theme/highlighting/user_type_color");
+	const Color usertype_color = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/user_type_color");
 	LocalVector<StringName> global_classes;
 	ScriptServer::get_global_class_list(global_classes);
 	for (const StringName &class_name : global_classes) {
@@ -800,7 +801,7 @@ void RuztaSyntaxHighlighter::_update_cache() {
 	const RuztaLanguage *ruzta = RuztaLanguage::get_singleton();
 
 	/* Core types. */
-	const Color basetype_color = EDITOR_GET("text_editor/theme/highlighting/base_type_color");
+	const Color basetype_color = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/base_type_color");
 	List<String> core_types;
 	ruzta->get_core_type_words(&core_types);
 	for (const String &E : core_types) {
@@ -814,8 +815,8 @@ void RuztaSyntaxHighlighter::_update_cache() {
 	class_names[StringName("float")] = basetype_color;
 
 	/* Reserved words. */
-	const Color keyword_color = EDITOR_GET("text_editor/theme/highlighting/keyword_color");
-	const Color control_flow_keyword_color = EDITOR_GET("text_editor/theme/highlighting/control_flow_keyword_color");
+	const Color keyword_color = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/keyword_color");
+	const Color control_flow_keyword_color = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/control_flow_keyword_color");
 	for (const String &keyword : ruzta->get_reserved_words()) {
 		if (ruzta->is_control_flow_keyword(keyword)) {
 			reserved_keywords[StringName(keyword)] = control_flow_keyword_color;
@@ -831,7 +832,7 @@ void RuztaSyntaxHighlighter::_update_cache() {
 	/* Global functions. */
 	List<StringName> global_function_list;
 	RuztaUtilityFunctions::get_function_list(&global_function_list);
-	Variant::get_utility_function_list(&global_function_list);
+	RuztaVariantExtension::get_utility_function_list(&global_function_list);
 	// "assert" and "preload" are not utility functions, but are global nonetheless, so insert them.
 	global_functions.insert(StringName("assert"));
 	global_functions.insert(StringName("preload"));
@@ -840,7 +841,7 @@ void RuztaSyntaxHighlighter::_update_cache() {
 	}
 
 	/* Comments. */
-	const Color comment_color = EDITOR_GET("text_editor/theme/highlighting/comment_color");
+	const Color comment_color = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/comment_color");
 	for (const String &comment : ruzta->get_comment_delimiters()) {
 		String beg = comment.get_slicec(' ', 0);
 		String end = comment.get_slice_count(" ") > 1 ? comment.get_slicec(' ', 1) : String();
@@ -848,7 +849,7 @@ void RuztaSyntaxHighlighter::_update_cache() {
 	}
 
 	/* Doc comments */
-	const Color doc_comment_color = EDITOR_GET("text_editor/theme/highlighting/doc_comment_color");
+	const Color doc_comment_color = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/doc_comment_color");
 	for (const String &doc_comment : ruzta->get_doc_comment_delimiters()) {
 		String beg = doc_comment.get_slicec(' ', 0);
 		String end = doc_comment.get_slice_count(" ") > 1 ? doc_comment.get_slicec(' ', 1) : String();
@@ -856,13 +857,13 @@ void RuztaSyntaxHighlighter::_update_cache() {
 	}
 
 	/* Code regions */
-	const Color code_region_color = Color(EDITOR_GET("text_editor/theme/highlighting/folded_code_region_color").operator Color(), 1.0);
+	const Color code_region_color = Color(RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/folded_code_region_color").operator Color(), 1.0);
 	add_color_region(ColorRegion::TYPE_CODE_REGION, "#region", "", code_region_color, true);
 	add_color_region(ColorRegion::TYPE_CODE_REGION, "#endregion", "", code_region_color, true);
 
 	/* Strings */
-	string_color = EDITOR_GET("text_editor/theme/highlighting/string_color");
-	placeholder_color = EDITOR_GET("text_editor/theme/highlighting/string_placeholder_color");
+	string_color = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/string_color");
+	placeholder_color = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/string_placeholder_color");
 	add_color_region(ColorRegion::TYPE_STRING, "\"", "\"", string_color);
 	add_color_region(ColorRegion::TYPE_STRING, "'", "'", string_color);
 	add_color_region(ColorRegion::TYPE_MULTILINE_STRING, "\"\"\"", "\"\"\"", string_color);
@@ -904,13 +905,13 @@ void RuztaSyntaxHighlighter::_update_cache() {
 			}
 
 			List<String> constant_list;
-			ClassDB::get_integer_constant_list(instance_base, &constant_list);
+			ClassDB::class_get_integer_constant_list(instance_base, &constant_list);
 			for (const String &E : constant_list) {
 				member_keywords[E] = member_variable_color;
 			}
 
 			List<StringName> builtin_enums;
-			ClassDB::get_enum_list(instance_base, &builtin_enums);
+			ClassDB::class_get_enum_list(instance_base, &builtin_enums);
 			for (const StringName &E : builtin_enums) {
 				member_keywords[E] = types_color;
 			}
@@ -936,9 +937,9 @@ void RuztaSyntaxHighlighter::_update_cache() {
 		}
 
 		// For callables.
-		List<MethodInfo> scr_method_list;
-		scr->get_script_method_list(&scr_method_list);
-		for (const MethodInfo &E : scr_method_list) {
+		godot::TypedArray<Dictionary> methods = scr->get_script_method_list();
+		for (const Dictionary &info : methods) {
+			MethodInfo E = MethodInfo::from_dict(info);
 			member_keywords[E.name] = member_variable_color;
 		}
 
@@ -953,27 +954,27 @@ void RuztaSyntaxHighlighter::_update_cache() {
 		}
 	}
 
-	function_definition_color = EDITOR_GET("text_editor/theme/highlighting/ruzta/function_definition_color");
-	global_function_color = EDITOR_GET("text_editor/theme/highlighting/ruzta/global_function_color");
-	node_path_color = EDITOR_GET("text_editor/theme/highlighting/ruzta/node_path_color");
-	node_ref_color = EDITOR_GET("text_editor/theme/highlighting/ruzta/node_reference_color");
-	annotation_color = EDITOR_GET("text_editor/theme/highlighting/ruzta/annotation_color");
-	string_name_color = EDITOR_GET("text_editor/theme/highlighting/ruzta/string_name_color");
-	type_color = EDITOR_GET("text_editor/theme/highlighting/base_type_color");
-	comment_marker_colors[COMMENT_MARKER_CRITICAL] = EDITOR_GET("text_editor/theme/highlighting/comment_markers/critical_color");
-	comment_marker_colors[COMMENT_MARKER_WARNING] = EDITOR_GET("text_editor/theme/highlighting/comment_markers/warning_color");
-	comment_marker_colors[COMMENT_MARKER_NOTICE] = EDITOR_GET("text_editor/theme/highlighting/comment_markers/notice_color");
+	function_definition_color = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/ruzta/function_definition_color");
+	global_function_color = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/ruzta/global_function_color");
+	node_path_color = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/ruzta/node_path_color");
+	node_ref_color = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/ruzta/node_reference_color");
+	annotation_color = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/ruzta/annotation_color");
+	string_name_color = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/ruzta/string_name_color");
+	type_color = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/base_type_color");
+	comment_marker_colors[COMMENT_MARKER_CRITICAL] = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/comment_markers/critical_color");
+	comment_marker_colors[COMMENT_MARKER_WARNING] = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/comment_markers/warning_color");
+	comment_marker_colors[COMMENT_MARKER_NOTICE] = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/comment_markers/notice_color");
 
 	comment_markers.clear();
-	Vector<String> critical_list = EDITOR_GET("text_editor/theme/highlighting/comment_markers/critical_list").operator String().split(",", false);
+	Vector<String> critical_list = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/comment_markers/critical_list").operator String().split(",", false);
 	for (int i = 0; i < critical_list.size(); i++) {
 		comment_markers[critical_list[i]] = COMMENT_MARKER_CRITICAL;
 	}
-	Vector<String> warning_list = EDITOR_GET("text_editor/theme/highlighting/comment_markers/warning_list").operator String().split(",", false);
+	Vector<String> warning_list = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/comment_markers/warning_list").operator String().split(",", false);
 	for (int i = 0; i < warning_list.size(); i++) {
 		comment_markers[warning_list[i]] = COMMENT_MARKER_WARNING;
 	}
-	Vector<String> notice_list = EDITOR_GET("text_editor/theme/highlighting/comment_markers/notice_list").operator String().split(",", false);
+	Vector<String> notice_list = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/comment_markers/notice_list").operator String().split(",", false);
 	for (int i = 0; i < notice_list.size(); i++) {
 		comment_markers[notice_list[i]] = COMMENT_MARKER_NOTICE;
 	}

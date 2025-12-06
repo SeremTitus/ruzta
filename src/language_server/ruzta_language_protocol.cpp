@@ -2,10 +2,12 @@
 /*  ruzta_language_protocol.cpp                                        */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -35,7 +37,7 @@
 // TODO: #include "editor/doc/editor_help.h" // original: editor/doc/editor_help.h
 // TODO: #include "editor/editor_log.h" // original: editor/editor_log.h
 // TODO: #include "editor/editor_node.h" // original: editor/editor_node.h
-// TODO: #include "editor/settings/editor_settings.h" // original: editor/settings/editor_settings.h
+#include <godot_cpp/classes/editor_settings.hpp> // original: editor/settings/editor_settings.h
 
 RuztaLanguageProtocol *RuztaLanguageProtocol::singleton = nullptr;
 
@@ -236,7 +238,7 @@ void RuztaLanguageProtocol::initialized(const Variant &p_params) {
 	LSP::GodotCapabilities capabilities;
 
 	DocTools *doc = EditorHelp::get_doc_data();
-	for (const KeyValue<String, DocData::ClassDoc> &E : doc->class_list) {
+	for (const KeyValue<String, RuztaDocData::ClassDoc> &E : doc->class_list) {
 		LSP::GodotNativeClassInfo gdclass;
 		gdclass.name = E.value.name;
 		gdclass.class_doc = &(E.value);
@@ -349,11 +351,11 @@ void RuztaLanguageProtocol::request_client(const String &p_method, const Variant
 }
 
 bool RuztaLanguageProtocol::is_smart_resolve_enabled() const {
-	return bool(_EDITOR_GET("network/language_server/enable_smart_resolve"));
+	return bool(RuztaEditorPlugin::get_editor_settings()->get_setting("network/language_server/enable_smart_resolve"));
 }
 
 bool RuztaLanguageProtocol::is_goto_native_symbols_enabled() const {
-	return bool(_EDITOR_GET("network/language_server/show_native_symbols_in_editor"));
+	return bool(RuztaEditorPlugin::get_editor_settings()->get_setting("network/language_server/show_native_symbols_in_editor"));
 }
 
 // clang-format off

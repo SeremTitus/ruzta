@@ -2,10 +2,12 @@
 /*  ruzta_disassembler.cpp                                             */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -57,14 +59,14 @@ static String _get_variant_string(const Variant &p_variant) {
 					txt = "script(" + Ruzta::debug_get_script_name(script) + ")";
 				} else {
 					txt = "object(" + obj->get_class();
-					if (obj->get_script_instance()) {
-						txt += ", " + Ruzta::debug_get_script_name(obj->get_script_instance()->get_script());
+					if (((Ref<Script>)obj.is_valid()) {
+						txt += ", " + Ruzta::debug_get_script_name(obj->get_script());
 					}
 					txt += ")";
 				}
 			}
 		}
-	} else {
+	} else {->get_script())
 		txt = p_variant;
 	}
 	return txt;
@@ -101,7 +103,7 @@ void RuztaFunction::disassemble(const Vector<String> &p_code_lines) const {
 #define DADDR(m_ip) (_disassemble_address(_script, *this, _code_ptr[ip + m_ip]))
 
 	for (int ip = 0; ip < _code_size;) {
-		StringBuilder text;
+		String text;
 		int incr = 0;
 
 		text += " ";
@@ -113,7 +115,7 @@ void RuztaFunction::disassemble(const Vector<String> &p_code_lines) const {
 
 		switch (opcode) {
 			case OPCODE_OPERATOR: {
-				constexpr int _pointer_size = sizeof(Variant::ValidatedOperatorEvaluator) / sizeof(*_code_ptr);
+				constexpr int _pointer_size = sizeof(RuztaVariantExtension::ValidatedOperatorEvaluator) / sizeof(*_code_ptr);
 				int operation = _code_ptr[ip + 4];
 
 				text += "operator ";
@@ -122,7 +124,7 @@ void RuztaFunction::disassemble(const Vector<String> &p_code_lines) const {
 				text += " = ";
 				text += DADDR(1);
 				text += " ";
-				text += Variant::get_operator_name(Variant::Operator(operation));
+				text += RuztaVariantExtension::get_operator_name(Variant::Operator(operation));
 				text += " ";
 				text += DADDR(2);
 
@@ -752,7 +754,7 @@ void RuztaFunction::disassemble(const Vector<String> &p_code_lines) const {
 				text += " = ";
 				text += Variant::get_type_name(type);
 				text += ".";
-				text += _global_names_ptr[_code_ptr[ip + 2 + instr_var_args]].operator String();
+				text += String(_global_names_ptr[_code_ptr[ip + 2 + instr_var_args]]);
 				text += "(";
 
 				for (int i = 0; i < argc; i++) {
@@ -1003,7 +1005,7 @@ void RuztaFunction::disassemble(const Vector<String> &p_code_lines) const {
 
 				text += DADDR(1 + captures_count);
 				text += "create lambda from ";
-				text += lambda->name.operator String();
+				text += String(lambda->name);
 				text += "function, captures (";
 
 				for (int i = 0; i < captures_count; i++) {
@@ -1023,7 +1025,7 @@ void RuztaFunction::disassemble(const Vector<String> &p_code_lines) const {
 
 				text += DADDR(1 + captures_count);
 				text += "create self lambda from ";
-				text += lambda->name.operator String();
+				text += String(lambda->name);
 				text += "function, captures (";
 
 				for (int i = 0; i < captures_count; i++) {
@@ -1324,8 +1326,8 @@ void RuztaFunction::disassemble(const Vector<String> &p_code_lines) const {
 		}
 
 		ip += incr;
-		if (text.get_string_length() > 0) {
-			print_line(text.as_string());
+		if (text.length() > 0) {
+			print_line(text);
 		}
 	}
 }

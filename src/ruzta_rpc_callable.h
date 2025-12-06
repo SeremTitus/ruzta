@@ -2,10 +2,12 @@
 /*  ruzta_rpc_callable.h                                               */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -30,13 +32,18 @@
 
 #pragma once
 
-#include <godot_cpp/variant/callable.hpp> // original: core/variant/callable.h
-#include <godot_cpp/variant/variant.hpp> // original: core/variant/variant.h
+// #include <godot_cpp/variant/callable.hpp> // original: core/variant/callable.h
+// #include <godot_cpp/variant/variant.hpp> // original: core/variant/variant.h
+#include <godot_cpp/variant/string_name.hpp> // original: 
+#include <godot_cpp/classes/object.hpp> // original: 
+// #include <godot_cpp/core/object_id.hpp> // original: 
+#include <godot_cpp/variant/callable_custom.hpp> // original:
 
-class Node;
+using namespace godot;
+// class Node;
 
 class RuztaRPCCallable : public CallableCustom {
-	Object *object = nullptr;
+	godot::Object *object = nullptr;
 	Node *node = nullptr;
 	StringName method;
 	uint32_t h = 0;
@@ -50,10 +57,10 @@ public:
 	CompareEqualFunc get_compare_equal_func() const override;
 	CompareLessFunc get_compare_less_func() const override;
 	ObjectID get_object() const override;
-	StringName get_method() const override;
+	StringName get_method() const;
 	int get_argument_count(bool &r_is_valid) const override;
 	void call(const Variant **p_arguments, int p_argcount, Variant &r_return_value, GDExtensionCallError &r_call_error) const override;
-	Error rpc(int p_peer_id, const Variant **p_arguments, int p_argcount, GDExtensionCallError &r_call_error) const override;
+	Error rpc(int p_peer_id, const Variant **p_arguments, int p_argcount, GDExtensionCallError &r_call_error) const;
 
 	RuztaRPCCallable(Object *p_object, const StringName &p_method);
 	virtual ~RuztaRPCCallable() = default;

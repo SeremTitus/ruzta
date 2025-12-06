@@ -2,10 +2,12 @@
 /*  ruzta_function.h                                                   */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -31,14 +33,15 @@
 #pragma once
 
 #include "ruzta_utility_functions.h"
-#include "ruzta_helper.h"
+
+#include "ruzta_variant/ruzta_variant_extension.h"
 
 #include <godot_cpp/classes/ref_counted.hpp> // original: core/object/ref_counted.h
 #include <godot_cpp/classes/script_language.hpp> // original: core/object/script_language.h
-// TODO: #include "core/os/thread.h" // original: core/os/thread.h
+#include <godot_cpp/classes/thread.hpp> // original: core/os/thread.h
 #include <godot_cpp/variant/string_name.hpp> // original: core/string/string_name.h
 #include <godot_cpp/templates/pair.hpp> // original: core/templates/pair.h
-// TODO: #include "core/templates/self_list.h" // original: core/templates/self_list.h
+#include <godot_cpp/templates/self_list.hpp> // original: core/templates/self_list.h
 #include <godot_cpp/variant/variant.hpp> // original: core/variant/variant.h
 #include <godot_cpp/classes/script.hpp> // original:
 
@@ -164,7 +167,7 @@ public:
 					return p_variant.operator ObjectID() == ObjectID(); // !was_freed
 				}
 
-				Ref<Script> base = obj ? Object::cast_to<Script>(obj->get_script()) : nullptr;
+				Ref<Script> base = obj ? obj->get_script() : Ref<Script>();
 				bool valid = false;
 				while (base.is_valid()) {
 					if (base == script_type) {
@@ -480,16 +483,16 @@ private:
 	Vector<int> default_arguments;
 	Vector<Variant> constants;
 	Vector<StringName> global_names;
-	Vector<RuztaHelper::ValidatedOperatorEvaluator> operator_funcs;
-	Vector<RuztaHelper::ValidatedSetter> setters;
-	Vector<RuztaHelper::ValidatedGetter> getters;
-	Vector<RuztaHelper::ValidatedKeyedSetter> keyed_setters;
-	Vector<RuztaHelper::ValidatedKeyedGetter> keyed_getters;
-	Vector<RuztaHelper::ValidatedIndexedSetter> indexed_setters;
-	Vector<RuztaHelper::ValidatedIndexedGetter> indexed_getters;
-	Vector<RuztaHelper::ValidatedBuiltInMethod> builtin_methods;
-	Vector<RuztaHelper::ValidatedConstructor> constructors;
-	Vector<RuztaHelper::ValidatedUtilityFunction> utilities;
+	Vector<RuztaVariantExtension::ValidatedOperatorEvaluator> operator_funcs;
+	Vector<RuztaVariantExtension::ValidatedSetter> setters;
+	Vector<RuztaVariantExtension::ValidatedGetter> getters;
+	Vector<RuztaVariantExtension::ValidatedKeyedSetter> keyed_setters;
+	Vector<RuztaVariantExtension::ValidatedKeyedGetter> keyed_getters;
+	Vector<RuztaVariantExtension::ValidatedIndexedSetter> indexed_setters;
+	Vector<RuztaVariantExtension::ValidatedIndexedGetter> indexed_getters;
+	Vector<RuztaVariantExtension::ValidatedBuiltInMethod> builtin_methods;
+	Vector<RuztaVariantExtension::ValidatedConstructor> constructors;
+	Vector<RuztaVariantExtension::ValidatedUtilityFunction> utilities;
 	Vector<RuztaUtilityFunctions::FunctionPtr> gds_utilities;
 	Vector<MethodBind *> methods;
 	Vector<RuztaFunction *> lambdas;
@@ -516,16 +519,16 @@ private:
 	const int *_default_arg_ptr = nullptr;
 	mutable Variant *_constants_ptr = nullptr;
 	const StringName *_global_names_ptr = nullptr;
-	const RuztaHelper::ValidatedOperatorEvaluator *_operator_funcs_ptr = nullptr;
-	const RuztaHelper::ValidatedSetter *_setters_ptr = nullptr;
-	const RuztaHelper::ValidatedGetter *_getters_ptr = nullptr;
-	const RuztaHelper::ValidatedKeyedSetter *_keyed_setters_ptr = nullptr;
-	const RuztaHelper::ValidatedKeyedGetter *_keyed_getters_ptr = nullptr;
-	const RuztaHelper::ValidatedIndexedSetter *_indexed_setters_ptr = nullptr;
-	const RuztaHelper::ValidatedIndexedGetter *_indexed_getters_ptr = nullptr;
-	const RuztaHelper::ValidatedBuiltInMethod *_builtin_methods_ptr = nullptr;
-	const RuztaHelper::ValidatedConstructor *_constructors_ptr = nullptr;
-	const RuztaHelper::ValidatedUtilityFunction *_utilities_ptr = nullptr;
+	const RuztaVariantExtension::ValidatedOperatorEvaluator *_operator_funcs_ptr = nullptr;
+	const RuztaVariantExtension::ValidatedSetter *_setters_ptr = nullptr;
+	const RuztaVariantExtension::ValidatedGetter *_getters_ptr = nullptr;
+	const RuztaVariantExtension::ValidatedKeyedSetter *_keyed_setters_ptr = nullptr;
+	const RuztaVariantExtension::ValidatedKeyedGetter *_keyed_getters_ptr = nullptr;
+	const RuztaVariantExtension::ValidatedIndexedSetter *_indexed_setters_ptr = nullptr;
+	const RuztaVariantExtension::ValidatedIndexedGetter *_indexed_getters_ptr = nullptr;
+	const RuztaVariantExtension::ValidatedBuiltInMethod *_builtin_methods_ptr = nullptr;
+	const RuztaVariantExtension::ValidatedConstructor *_constructors_ptr = nullptr;
+	const RuztaVariantExtension::ValidatedUtilityFunction *_utilities_ptr = nullptr;
 	const RuztaUtilityFunctions::FunctionPtr *_gds_utilities_ptr = nullptr;
 	MethodBind **_methods_ptr = nullptr;
 	RuztaFunction **_lambdas_ptr = nullptr;

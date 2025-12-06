@@ -2,10 +2,12 @@
 /*  ruzta_language_protocol.h                                          */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -36,7 +38,7 @@
 #include <godot_cpp/classes/stream_peer_tcp.hpp> // original: core/io/stream_peer_tcp.h
 #include <godot_cpp/classes/tcp_server.hpp> // original: core/io/tcp_server.h
 
-// TODO: #include "modules/jsonrpc/jsonrpc.h" // original: modules/jsonrpc/jsonrpc.h
+#include <godot_cpp/classes/jsonrpc.hpp> // original: modules/jsonrpc/jsonrpc.h
 
 #define LSP_MAX_BUFFER_SIZE 4194304
 #define LSP_MAX_CLIENTS 8

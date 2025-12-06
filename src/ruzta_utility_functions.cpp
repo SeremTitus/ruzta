@@ -2,10 +2,12 @@
 /*  ruzta_utility_functions.cpp                                        */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -31,6 +33,7 @@
 #include "ruzta_utility_functions.h"
 
 #include "ruzta.h"
+#include "ruzta_translation.h"
 
 #include <godot_cpp/classes/resource_loader.hpp> // original: core/io/resource_loader.h
 #include <godot_cpp/core/class_db.hpp> // original: core/object/class_db.h
@@ -107,7 +110,7 @@ struct RuztaUtilityFunctionsDefinitions {
 		DEBUG_VALIDATE_ARG_CUSTOM(1, Variant::INT, type < 0 || type >= Variant::VARIANT_MAX,
 				RTR("Invalid type argument to convert(), use TYPE_* constants."));
 
-		Variant::construct(Variant::Type(type), *r_ret, p_args, 1, r_error);
+		RuztaVariantExtension::construct(Variant::Type(type), *r_ret, p_args, 1, r_error);
 	}
 #endif // DISABLE_DEPRECATED
 
@@ -130,7 +133,7 @@ struct RuztaUtilityFunctionsDefinitions {
 		DEBUG_VALIDATE_ARG_TYPE(0, Variant::STRING);
 		const String string = *p_args[0];
 		VALIDATE_ARG_CUSTOM(0, Variant::STRING, string.length() != 1, RTR("Expected a string of length 1 (a character)."));
-		*r_ret = string.get(0);
+		*r_ret = string[0];
 	}
 
 	static inline void range(Variant *r_ret, const Variant **p_args, int p_arg_count, GDExtensionCallError &r_error) {
@@ -148,7 +151,7 @@ struct RuztaUtilityFunctionsDefinitions {
 				}
 
 				GDFUNC_FAIL_COND_MSG(count > INT32_MAX, RTR("Range too big."));
-				Error err = arr.resize(count);
+				Error err = static_cast<Error>(arr.resize(count));
 				GDFUNC_FAIL_COND_MSG(err != OK, RTR("Cannot resize array."));
 
 				for (int64_t i = 0; i < count; i++) {
@@ -171,7 +174,7 @@ struct RuztaUtilityFunctionsDefinitions {
 				}
 
 				GDFUNC_FAIL_COND_MSG(to - from > INT32_MAX, RTR("Range too big."));
-				Error err = arr.resize(to - from);
+				Error err = static_cast<Error>(arr.resize(to - from));
 				GDFUNC_FAIL_COND_MSG(err != OK, RTR("Cannot resize array."));
 
 				for (int64_t i = from; i < to; i++) {
@@ -202,15 +205,19 @@ struct RuztaUtilityFunctionsDefinitions {
 				}
 
 				// Calculate how many.
+				auto division_round_up = [](int64_t p_num, int64_t p_den) {
+					int32_t offset = (p_num < 0 && p_den < 0) ? 1 : -1;
+					return (p_num + p_den + offset) / p_den;
+				};
 				int64_t count = 0;
 				if (incr > 0) {
-					count = Math::division_round_up(to - from, incr);
+					count = division_round_up(to - from, incr);
 				} else {
-					count = Math::division_round_up(from - to, -incr);
+					count = division_round_up(from - to, -incr);
 				}
 
 				GDFUNC_FAIL_COND_MSG(count > INT32_MAX, RTR("Range too big."));
-				Error err = arr.resize(count);
+				Error err = static_cast<Error>(arr.resize(count));
 				GDFUNC_FAIL_COND_MSG(err != OK, RTR("Cannot resize array."));
 
 				if (incr > 0) {
@@ -233,7 +240,7 @@ struct RuztaUtilityFunctionsDefinitions {
 	static inline void load(Variant *r_ret, const Variant **p_args, int p_arg_count, GDExtensionCallError &r_error) {
 		DEBUG_VALIDATE_ARG_COUNT(1, 1);
 		DEBUG_VALIDATE_ARG_TYPE(0, Variant::STRING);
-		*r_ret = ResourceLoader::load(*p_args[0]);
+		*r_ret = ResourceLoader::get_singleton()->load(*p_args[0]);
 	}
 
 #ifndef DISABLE_DEPRECATED
@@ -253,11 +260,10 @@ struct RuztaUtilityFunctionsDefinitions {
 			return;
 		}
 
-		VALIDATE_ARG_CUSTOM(0, Variant::OBJECT,
-				!obj->get_script_instance() || obj->get_script_instance()->get_language() != RuztaLanguage::get_singleton(),
+		VALIDATE_ARG_CUSTOM(0, Variant::OBJECT, !godot::internal::gdextension_interface_object_get_script_instance(obj, RuztaLanguage::get_singleton()),
 				RTR("Not a script with an instance."));
 
-		RuztaInstance *inst = static_cast<RuztaInstance *>(obj->get_script_instance());
+		RuztaInstance *inst = static_cast<RuztaInstance *>(godot::internal::gdextension_interface_object_get_script_instance(obj, RuztaLanguage::get_singleton()));
 
 		Ref<Ruzta> base = inst->get_script();
 		VALIDATE_ARG_CUSTOM(0, Variant::OBJECT, base.is_null(), RTR("Not based on a script."));
@@ -272,9 +278,9 @@ struct RuztaUtilityFunctionsDefinitions {
 		}
 		sname.reverse();
 
-		VALIDATE_ARG_CUSTOM(0, Variant::OBJECT, !path.is_resource_file(), RTR("Not based on a resource file."));
+		VALIDATE_ARG_CUSTOM(0, Variant::OBJECT, !(path.begins_with("res://") && path.find("::") == -1), RTR("Not based on a resource file."));
 
-		NodePath cp(sname, Vector<StringName>(), false);
+		NodePath cp(String(sname));
 
 		Dictionary d;
 		d["@subpath"] = cp;
@@ -297,7 +303,7 @@ struct RuztaUtilityFunctionsDefinitions {
 
 		VALIDATE_ARG_CUSTOM(0, Variant::DICTIONARY, !d.has("@path"), RTR("Invalid instance dictionary format (missing @path)."));
 
-		Ref<Script> scr = ResourceLoader::load(d["@path"]);
+		Ref<Script> scr = ResourceLoader::get_singleton()->load(d["@path"]);
 		VALIDATE_ARG_CUSTOM(0, Variant::DICTIONARY, scr.is_null(), RTR("Invalid instance dictionary format (can't load script at @path)."));
 
 		Ref<Ruzta> gdscr = scr;
@@ -318,8 +324,8 @@ struct RuztaUtilityFunctionsDefinitions {
 			*r_ret = RTR("Cannot instantiate Ruzta class.");
 			return;
 		}
-
-		RuztaInstance *inst = static_cast<RuztaInstance *>(static_cast<Object *>(*r_ret)->get_script_instance());
+		
+		RuztaInstance *inst = static_cast<RuztaInstance *>(godot::internal::gdextension_interface_object_get_script_instance(static_cast<Object *>(*r_ret), RuztaLanguage::get_singleton()));
 		Ref<Ruzta> rz_ref = inst->get_script();
 
 		for (KeyValue<StringName, Ruzta::MemberInfo> &E : rz_ref->member_indices) {
@@ -352,7 +358,7 @@ struct RuztaUtilityFunctionsDefinitions {
 			s += p_args[i]->operator String();
 		}
 
-		ScriptLanguage *script = RuztaLanguage::get_singleton();
+		RuztaLanguage *script = RuztaLanguage::get_singleton();
 		if (script->debug_get_stack_level_count() > 0) {
 			s += "\n   At: " + script->debug_get_stack_level_source(0) + ":" + itos(script->debug_get_stack_level_line(0)) + ":" + script->debug_get_stack_level_function(0) + "()";
 		}
@@ -364,7 +370,7 @@ struct RuztaUtilityFunctionsDefinitions {
 	static inline void print_stack(Variant *r_ret, const Variant **p_args, int p_arg_count, GDExtensionCallError &r_error) {
 		DEBUG_VALIDATE_ARG_COUNT(0, 0);
 
-		ScriptLanguage *script = RuztaLanguage::get_singleton();
+		RuztaLanguage *script = RuztaLanguage::get_singleton();
 		for (int i = 0; i < script->debug_get_stack_level_count(); i++) {
 			print_line("Frame " + itos(i) + " - " + script->debug_get_stack_level_source(i) + ":" + itos(script->debug_get_stack_level_line(i)) + " in function '" + script->debug_get_stack_level_function(i) + "'");
 		};
@@ -374,8 +380,8 @@ struct RuztaUtilityFunctionsDefinitions {
 	static inline void get_stack(Variant *r_ret, const Variant **p_args, int p_arg_count, GDExtensionCallError &r_error) {
 		DEBUG_VALIDATE_ARG_COUNT(0, 0);
 
-		ScriptLanguage *script = RuztaLanguage::get_singleton();
-		TypedArray<Dictionary> ret;
+		RuztaLanguage *script = RuztaLanguage::get_singleton();
+		godot::TypedArray<Dictionary> ret;
 		for (int i = 0; i < script->debug_get_stack_level_count(); i++) {
 			Dictionary frame;
 			frame["source"] = script->debug_get_stack_level_source(i);
@@ -403,43 +409,43 @@ struct RuztaUtilityFunctionsDefinitions {
 				*r_ret = d.size();
 			} break;
 			case Variant::PACKED_BYTE_ARRAY: {
-				Vector<uint8_t> d = *p_args[0];
+				PackedByteArray d = *p_args[0];
 				*r_ret = d.size();
 			} break;
 			case Variant::PACKED_INT32_ARRAY: {
-				Vector<int32_t> d = *p_args[0];
+				PackedInt32Array d = *p_args[0];
 				*r_ret = d.size();
 			} break;
 			case Variant::PACKED_INT64_ARRAY: {
-				Vector<int64_t> d = *p_args[0];
+				PackedFloat64Array d = *p_args[0];
 				*r_ret = d.size();
 			} break;
 			case Variant::PACKED_FLOAT32_ARRAY: {
-				Vector<float> d = *p_args[0];
+				PackedFloat32Array d = *p_args[0];
 				*r_ret = d.size();
 			} break;
 			case Variant::PACKED_FLOAT64_ARRAY: {
-				Vector<double> d = *p_args[0];
+				PackedFloat64Array d = *p_args[0];
 				*r_ret = d.size();
 			} break;
 			case Variant::PACKED_STRING_ARRAY: {
-				Vector<String> d = *p_args[0];
+				PackedStringArray d = *p_args[0];
 				*r_ret = d.size();
 			} break;
 			case Variant::PACKED_VECTOR2_ARRAY: {
-				Vector<Vector2> d = *p_args[0];
+				PackedVector2Array d = *p_args[0];
 				*r_ret = d.size();
 			} break;
 			case Variant::PACKED_VECTOR3_ARRAY: {
-				Vector<Vector3> d = *p_args[0];
+				PackedVector3Array d = *p_args[0];
 				*r_ret = d.size();
 			} break;
 			case Variant::PACKED_COLOR_ARRAY: {
-				Vector<Color> d = *p_args[0];
+				PackedColorArray d = *p_args[0];
 				*r_ret = d.size();
 			} break;
 			case Variant::PACKED_VECTOR4_ARRAY: {
-				Vector<Vector4> d = *p_args[0];
+				PackedVector4Array d = *p_args[0];
 				*r_ret = d.size();
 			} break;
 			default: {
@@ -485,8 +491,8 @@ struct RuztaUtilityFunctionsDefinitions {
 		Script *script_type = Object::cast_to<Script>(type_object);
 		if (script_type) {
 			bool result = false;
-			if (value_object->get_script_instance()) {
-				Script *script_ptr = value_object->get_script_instance()->get_script().ptr();
+			if (godot::internal::gdextension_interface_object_get_script_instance(value_object, RuztaLanguage::get_singleton())) {
+				Script *script_ptr = ((Ref<Script>)value_object->get_script()).ptr();
 				while (script_ptr) {
 					if (script_ptr == script_type) {
 						result = true;
@@ -525,6 +531,11 @@ static void _register_function(const StringName &p_name, const MethodInfo &p_met
 
 	utility_function_table.insert(p_name, function);
 	utility_function_name_table.push_back(p_name);
+}
+
+template <typename... VarArgs>
+Vector<Variant> varray(VarArgs... p_args) {
+	return Vector<Variant>{ p_args... };
 }
 
 #define REGISTER_FUNC(m_func, m_is_const, m_return, m_args, m_is_vararg, m_default_args)         \

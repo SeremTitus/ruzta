@@ -2,10 +2,12 @@
 /*  test_ruzta.cpp                                                     */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -42,7 +44,7 @@
 // TODO: #include "core/string/string_builder.h" // original: core/string/string_builder.h
 
 #ifdef TOOLS_ENABLED
-// TODO: #include "editor/settings/editor_settings.h" // original: editor/settings/editor_settings.h
+#include <godot_cpp/classes/editor_settings.hpp> // original: editor/settings/editor_settings.h
 #endif
 
 namespace RuztaTests {
@@ -53,20 +55,20 @@ static void test_tokenizer(const String &p_code, const Vector<String> &p_lines) 
 
 	int tab_size = 4;
 #ifdef TOOLS_ENABLED
-	if (EditorSettings::get_singleton()) {
-		tab_size = EditorSettings::get_singleton()->get_setting("text_editor/behavior/indent/size");
+	if (RuztaEditorPlugin::get_editor_settings()) {
+		tab_size = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/behavior/indent/size");
 	}
 #endif // TOOLS_ENABLED
 	String tab = String(" ").repeat(tab_size);
 
 	RuztaTokenizer::Token current = tokenizer.scan();
 	while (current.type != RuztaTokenizer::Token::TK_EOF) {
-		StringBuilder token;
+		String token;
 		token += " --> "; // Padding for line number.
 
 		if (current.start_line != current.end_line) {
 			// Print "vvvvvv" to point at the token.
-			StringBuilder pointer;
+			String pointer;
 			pointer += "     "; // Padding for line number.
 
 			int line_width = 0;
@@ -78,7 +80,7 @@ static void test_tokenizer(const String &p_code, const Vector<String> &p_lines) 
 			const int width = MAX(0, line_width - current.start_column + 1);
 			pointer += String::chr(' ').repeat(offset) + String::chr('v').repeat(width);
 
-			print_line(pointer.as_string());
+			print_line(pointer);
 		}
 
 		for (int l = current.start_line; l <= current.end_line && l <= p_lines.size(); l++) {
@@ -87,7 +89,7 @@ static void test_tokenizer(const String &p_code, const Vector<String> &p_lines) 
 
 		{
 			// Print "^^^^^^" to point at the token.
-			StringBuilder pointer;
+			String pointer;
 			pointer += "     "; // Padding for line number.
 
 			if (current.start_line == current.end_line) {
@@ -99,7 +101,7 @@ static void test_tokenizer(const String &p_code, const Vector<String> &p_lines) 
 				pointer += String::chr('^').repeat(width);
 			}
 
-			print_line(pointer.as_string());
+			print_line(pointer);
 		}
 
 		token += current.get_name();
@@ -111,7 +113,7 @@ static void test_tokenizer(const String &p_code, const Vector<String> &p_lines) 
 			token += current.literal;
 		}
 
-		print_line(token.as_string());
+		print_line(token);
 
 		print_line("-------------------------------------------------------");
 
@@ -134,15 +136,15 @@ static void test_tokenizer_buffer(const Vector<uint8_t> &p_buffer, const Vector<
 
 	int tab_size = 4;
 #ifdef TOOLS_ENABLED
-	if (EditorSettings::get_singleton()) {
-		tab_size = EditorSettings::get_singleton()->get_setting("text_editor/behavior/indent/size");
+	if (RuztaEditorPlugin::get_editor_settings()) {
+		tab_size = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/behavior/indent/size");
 	}
 #endif // TOOLS_ENABLED
 	String tab = String(" ").repeat(tab_size);
 
 	RuztaTokenizer::Token current = tokenizer.scan();
 	while (current.type != RuztaTokenizer::Token::TK_EOF) {
-		StringBuilder token;
+		String token;
 		token += " --> "; // Padding for line number.
 
 		for (int l = current.start_line; l <= current.end_line && l <= p_lines.size(); l++) {
@@ -314,7 +316,7 @@ void test(TestType p_type) {
 	init_language(fa->get_path_absolute().get_base_dir());
 
 	// Load global classes.
-	TypedArray<Dictionary> script_classes = ProjectSettings::get_singleton()->get_global_class_list();
+	godot::TypedArray<Dictionary> script_classes = ProjectSettings::get_singleton()->get_global_class_list();
 	for (int i = 0; i < script_classes.size(); i++) {
 		Dictionary c = script_classes[i];
 		if (!c.has("class") || !c.has("language") || !c.has("path") || !c.has("base") || !c.has("is_abstract") || !c.has("is_tool")) {

@@ -2,10 +2,12 @@
 /*  ruzta_test_runner.cpp                                              */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -72,7 +74,7 @@ void init_autoloads() {
 		}
 
 		Node *n = nullptr;
-		if (ResourceLoader::get_resource_type(info.path) == "PackedScene") {
+		if (ResourceLoader::get_singleton()->get_resource_type(info.path) == "PackedScene") {
 			// Cache the scene reference before loading it (for cyclic references)
 			Ref<PackedScene> scn;
 			scn.instantiate();
@@ -84,7 +86,7 @@ void init_autoloads() {
 				n = scn->instantiate();
 			}
 		} else {
-			Ref<Resource> res = ResourceLoader::load(info.path);
+			Ref<Resource> res = ResourceLoader::get_singleton()->load(info.path);
 			ERR_CONTINUE_MSG(res.is_null(), vformat("Failed to instantiate an autoload, can't load from path: %s.", info.path));
 
 			Ref<Script> scr = res;
@@ -290,8 +292,8 @@ bool RuztaTestRunner::make_tests_for_dir(const String &p_dir) {
 			} else if (next.has_extension("rz")) {
 #ifndef DEBUG_ENABLED
 				// On release builds, skip tests marked as debug only.
-				Error open_err = OK;
-				Ref<FileAccess> script_file(FileAccess::open(current_dir.path_join(next), FileAccess::READ, &open_err));
+				Ref<FileAccess> script_file(FileAccess::open(current_dir.path_join(next), FileAccess::READ));
+				Error open_err = FileAccess::get_open_error(); 
 				if (open_err != OK) {
 					ERR_PRINT(vformat(R"(Couldn't open test file "%s".)", next));
 					next = dir->get_next();
@@ -469,13 +471,13 @@ void RuztaTest::error_handler(void *p_this, const char *p_function, const char *
 				String::utf8(p_function));
 	}
 
-	StringBuilder error_string;
-	error_string.append(vformat(">> %s: %s\n", header, String::utf8(p_error)));
+	String error_string;
+	error_string = vformat(">> %s: %s\n", header, String::utf8(p_error));
 	if (strlen(p_explanation) > 0) {
-		error_string.append(vformat(">>   %s\n", String::utf8(p_explanation)));
+		error_string += vformat(">>   %s\n", String::utf8(p_explanation));
 	}
 
-	result->output += error_string.as_string();
+	result->output += error_string;
 }
 
 bool RuztaTest::check_output(const String &p_output) const {
@@ -573,11 +575,11 @@ RuztaTest::TestResult RuztaTest::execute_test_code(bool p_is_generating) {
 		result.status = GDTEST_ANALYZER_ERROR;
 		result.output = get_text_for_status(result.status) + "\n";
 
-		StringBuilder error_string;
+		String error_string;
 		for (const RuztaParser::ParserError &error : parser.get_errors()) {
-			error_string.append(vformat(">> ERROR at line %d: %s\n", error.line, error.message));
+			error_string = vformat(">> ERROR at line %d: %s\n", error.line, error.message);
 		}
-		result.output += error_string.as_string();
+		result.output += error_string;
 		if (!p_is_generating) {
 			result.passed = check_output(result.output);
 		}
@@ -585,11 +587,11 @@ RuztaTest::TestResult RuztaTest::execute_test_code(bool p_is_generating) {
 	}
 
 #ifdef DEBUG_ENABLED
-	StringBuilder warning_string;
+	String warning_string;
 	for (const RuztaWarning &warning : parser.get_warnings()) {
-		warning_string.append(vformat("~~ WARNING at line %d: (%s) %s\n", warning.start_line, warning.get_name(), warning.get_message()));
+		warning_string = vformat("~~ WARNING at line %d: (%s) %s\n", warning.start_line, warning.get_name(), warning.get_message());
 	}
-	result.output += warning_string.as_string();
+	result.output += warning_string;
 #endif
 
 	// Test compiling.
@@ -653,7 +655,7 @@ RuztaTest::TestResult RuztaTest::execute_test_code(bool p_is_generating) {
 		obj_ref = Ref<RefCounted>(Object::cast_to<RefCounted>(obj));
 	}
 	obj->set_script(script);
-	RuztaInstance *instance = static_cast<RuztaInstance *>(obj->get_script_instance());
+	RuztaInstance *instance = static_cast<RuztaInstance *>(godot::internal::gdextension_interface_object_get_script_instance(obj, RuztaLanguage::get_singleton()));
 
 	// Call test function.
 	GDExtensionCallError call_err;
@@ -697,8 +699,8 @@ bool RuztaTest::generate_output() {
 		return false;
 	}
 
-	Error err = OK;
-	Ref<FileAccess> out_file = FileAccess::open(output_file, FileAccess::WRITE, &err);
+	Ref<FileAccess> out_file = FileAccess::open(output_file, FileAccess::WRITE);
+	Error err = FileAccess::get_open_error(); 
 	if (err != OK) {
 		return false;
 	}

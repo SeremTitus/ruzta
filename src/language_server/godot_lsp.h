@@ -2,10 +2,12 @@
 /*  godot_lsp.h                                                           */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -30,7 +32,7 @@
 
 #pragma once
 
-// TODO: #include "core/doc_data.h" // original: core/doc_data.h
+#include "doc_data.h" // original: doc_data.h
 #include <godot_cpp/core/class_db.hpp> // original: core/object/class_db.h
 #include <godot_cpp/templates/list.hpp> // original: core/templates/list.h
 
@@ -38,7 +40,7 @@ namespace LSP {
 
 typedef String DocumentUri;
 
-/** Format BBCode documentation from DocData to markdown */
+/** Format BBCode documentation from RuztaDocData to markdown */
 static String marked_documentation(const String &p_bbcode);
 
 /**
@@ -456,7 +458,7 @@ struct CompletionOptions {
 	/**
 	 * The characters that trigger completion automatically.
 	 */
-	Vector<String> triggerCharacters;
+	PackedStringArray triggerCharacters;
 
 	CompletionOptions() {
 		triggerCharacters.push_back(".");
@@ -545,7 +547,7 @@ struct ExecuteCommandOptions {
 	/**
 	 * The commands to be executed on the server
 	 */
-	Vector<String> commands;
+	PackedStringArray commands;
 
 	Dictionary to_json() {
 		Dictionary dict;
@@ -1893,7 +1895,7 @@ struct InitializeResult {
 
 struct GodotNativeClassInfo {
 	String name;
-	const DocData::ClassDoc *class_doc = nullptr;
+	const RuztaDocData::ClassDoc *class_doc = nullptr;
 	const ClassDB::ClassInfo *class_info = nullptr;
 
 	Dictionary to_json() const {
@@ -1922,7 +1924,7 @@ struct GodotCapabilities {
 	}
 };
 
-/** Format BBCode documentation from DocData to markdown */
+/** Format BBCode documentation from RuztaDocData to markdown */
 static String marked_documentation(const String &p_bbcode) {
 	String markdown = p_bbcode.strip_edges();
 

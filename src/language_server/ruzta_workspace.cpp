@@ -2,10 +2,12 @@
 /*  ruzta_workspace.cpp                                                */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -32,6 +34,7 @@
 
 #include "../ruzta.h"
 #include "../ruzta_parser.h"
+#include "../ruzta_editor_plugin.h"
 #include "ruzta_language_protocol.h"
 
 #include <godot_cpp/classes/project_settings.hpp> // original: core/config/project_settings.h
@@ -39,9 +42,10 @@
 // TODO: #include "editor/doc/doc_tools.h" // original: editor/doc/doc_tools.h
 // TODO: #include "editor/doc/editor_help.h" // original: editor/doc/editor_help.h
 // TODO: #include "editor/editor_node.h" // original: editor/editor_node.h
-// TODO: #include "editor/file_system/editor_file_system.h" // original: editor/file_system/editor_file_system.h
-// TODO: #include "editor/settings/editor_settings.h" // original: editor/settings/editor_settings.h
+#include <godot_cpp/classes/editor_file_system.hpp> // original: editor/file_system/editor_file_system.h
+#include <godot_cpp/classes/editor_settings.hpp> // original: editor/settings/editor_settings.h
 #include <godot_cpp/classes/packed_scene.hpp> // original: scene/resources/packed_scene.h
+#include <godot_cpp/classes/dir_access.hpp> // original:
 
 void RuztaWorkspace::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("apply_new_signal"), &RuztaWorkspace::apply_new_signal);
@@ -84,7 +88,7 @@ void RuztaWorkspace::apply_new_signal(Object *obj, String function, PackedString
 		}
 	}
 	function_body += ")";
-	if (EditorSettings::get_singleton()->get_setting("text_editor/completion/add_type_hints")) {
+	if (RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/completion/add_type_hints")) {
 		function_body += " -> void";
 	}
 	function_body += ":\n\tpass # Replace with function body.\n";
@@ -292,8 +296,8 @@ Error RuztaWorkspace::initialize() {
 	}
 
 	DocTools *doc = EditorHelp::get_doc_data();
-	for (const KeyValue<String, DocData::ClassDoc> &E : doc->class_list) {
-		const DocData::ClassDoc &class_data = E.value;
+	for (const KeyValue<String, RuztaDocData::ClassDoc> &E : doc->class_list) {
+		const RuztaDocData::ClassDoc &class_data = E.value;
 		const bool is_native = !class_data.is_script_doc;
 		LSP::DocumentSymbol class_symbol;
 		String class_name = E.key;
@@ -307,7 +311,7 @@ Error RuztaWorkspace::initialize() {
 		class_symbol.documentation = HANDLE_DOC(class_data.brief_description) + "\n" + HANDLE_DOC(class_data.description);
 
 		for (int i = 0; i < class_data.constants.size(); i++) {
-			const DocData::ConstantDoc &const_data = class_data.constants[i];
+			const RuztaDocData::ConstantDoc &const_data = class_data.constants[i];
 			LSP::DocumentSymbol symbol;
 			symbol.name = const_data.name;
 			symbol.native_class = class_name;
@@ -322,7 +326,7 @@ Error RuztaWorkspace::initialize() {
 		}
 
 		for (int i = 0; i < class_data.properties.size(); i++) {
-			const DocData::PropertyDoc &data = class_data.properties[i];
+			const RuztaDocData::PropertyDoc &data = class_data.properties[i];
 			LSP::DocumentSymbol symbol;
 			symbol.name = data.name;
 			symbol.native_class = class_name;
@@ -338,7 +342,7 @@ Error RuztaWorkspace::initialize() {
 		}
 
 		for (int i = 0; i < class_data.theme_properties.size(); i++) {
-			const DocData::ThemeItemDoc &data = class_data.theme_properties[i];
+			const RuztaDocData::ThemeItemDoc &data = class_data.theme_properties[i];
 			LSP::DocumentSymbol symbol;
 			symbol.name = data.name;
 			symbol.native_class = class_name;
@@ -348,7 +352,7 @@ Error RuztaWorkspace::initialize() {
 			class_symbol.children.push_back(symbol);
 		}
 
-		Vector<DocData::MethodDoc> method_likes;
+		Vector<RuztaDocData::MethodDoc> method_likes;
 		method_likes.append_array(class_data.methods);
 		method_likes.append_array(class_data.annotations);
 		const int constructors_start_idx = method_likes.size();
@@ -359,7 +363,7 @@ Error RuztaWorkspace::initialize() {
 		method_likes.append_array(class_data.signals);
 
 		for (int i = 0; i < method_likes.size(); i++) {
-			const DocData::MethodDoc &data = method_likes[i];
+			const RuztaDocData::MethodDoc &data = method_likes[i];
 
 			LSP::DocumentSymbol symbol;
 			symbol.name = data.name;
@@ -378,7 +382,7 @@ Error RuztaWorkspace::initialize() {
 			String params = "";
 			bool arg_default_value_started = false;
 			for (int j = 0; j < data.arguments.size(); j++) {
-				const DocData::ArgumentDoc &arg = data.arguments[j];
+				const RuztaDocData::ArgumentDoc &arg = data.arguments[j];
 
 				LSP::DocumentSymbol symbol_arg;
 				symbol_arg.name = arg.name;
@@ -619,7 +623,7 @@ String RuztaWorkspace::get_file_path(const String &p_uri) {
 
 		int offset = 0;
 		while (offset <= simple_path.length()) {
-			offset = simple_path.find_char('/', offset);
+			offset = simple_path.find(String('/'), offset);
 			if (offset == -1) {
 				offset = simple_path.length();
 			}
@@ -718,7 +722,7 @@ Node *RuztaWorkspace::_get_owner_scene_node(String p_path) {
 
 	for (const String &owner : owners) {
 		NodePath owner_path = owner;
-		Ref<Resource> owner_res = ResourceLoader::load(String(owner_path));
+		Ref<Resource> owner_res = ResourceLoader::get_singleton()->load(String(owner_path));
 		if (Object::cast_to<PackedScene>(owner_res.ptr())) {
 			Ref<PackedScene> owner_packed_scene = Ref<PackedScene>(Object::cast_to<PackedScene>(*owner_res));
 			owner_scene_node = owner_packed_scene->instantiate();

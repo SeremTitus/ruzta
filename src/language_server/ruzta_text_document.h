@@ -2,10 +2,12 @@
 /*  ruzta_text_document.h                                              */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -30,7 +32,7 @@
 
 #pragma once
 
-// TODO: #include "godot_lsp.h" // original: godot_lsp.h
+#include "godot_lsp.h" // original: godot_lsp.h
 
 #include <godot_cpp/classes/file_access.hpp> // original: core/io/file_access.h
 #include <godot_cpp/classes/ref_counted.hpp> // original: core/object/ref_counted.h

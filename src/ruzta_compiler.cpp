@@ -2,10 +2,12 @@
 /*  ruzta_compiler.cpp                                                 */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -64,7 +66,19 @@ bool RuztaCompiler::_is_class_member_property(Ruzta *owner, const StringName &p_
 
 	ERR_FAIL_NULL_V(nc, false);
 
-	return ClassDB::has_property(nc->get_name(), p_name);
+	auto ClassDB_has_property = [](const StringName &p_class, const StringName &p_property) -> bool {
+		bool has_property = false;
+		godot::TypedArray<Dictionary> property_list = ClassDB::class_get_property_list(p_class);
+		for (Dictionary property : property_list) {
+			if (property.has("name") && property["name"] == p_property) {
+				has_property = true;
+			}
+		}
+		return has_property;
+	};
+	
+
+	return ClassDB_has_property(nc->get_name(), p_name);
 }
 
 bool RuztaCompiler::_is_local_or_parameter(CodeGen &codegen, const StringName &p_name) {
@@ -346,7 +360,7 @@ RuztaCodeGenerator::Address RuztaCompiler::_parse_expression(CodeGen &codegen, E
 							scr = scr->base.ptr();
 						}
 
-						if (nc && (identifier == CoreStringName(free_) || ClassDB::has_signal(nc->get_name(), identifier) || ClassDB::has_method(nc->get_name(), identifier))) {
+						if (nc && (identifier == StringName("free_") || ClassDB::class_has_signal(nc->get_name(), identifier) || ClassDB::class_has_method(nc->get_name(), identifier))) {
 							// Get like it was a property.
 							RuztaCodeGenerator::Address temp = codegen.add_temporary(); // TODO: Get type here.
 							RuztaCodeGenerator::Address self(RuztaCodeGenerator::Address::SELF);
@@ -376,8 +390,8 @@ RuztaCodeGenerator::Address RuztaCompiler::_parse_expression(CodeGen &codegen, E
 
 						// Class C++ integer constant.
 						if (nc) {
-							bool success = false;
-							int64_t constant = ClassDB::get_integer_constant(nc->get_name(), identifier, &success);
+							bool success = ClassDB::class_has_integer_constant(nc->get_name(), identifier);
+							int64_t constant = ClassDB::class_get_integer_constant(nc->get_name(), identifier);
 							if (success) {
 								return codegen.add_constant(constant);
 							}
@@ -444,7 +458,7 @@ RuztaCodeGenerator::Address RuztaCompiler::_parse_expression(CodeGen &codegen, E
 							res = Ref<Ruzta>(main_script);
 						} else {
 							String global_class_path = ScriptServer::get_global_class_path(identifier);
-							if (ResourceLoader::get_resource_type(global_class_path) == "Ruzta") {
+							if (ResourceLoader::get_singleton()->get_resource_type(global_class_path) == "Ruzta") {
 								Error err = OK;
 								// Should not need to pass p_owner since analyzer will already have done it.
 								res = RuztaCache::get_shallow_script(global_class_path, err);
@@ -454,7 +468,7 @@ RuztaCodeGenerator::Address RuztaCompiler::_parse_expression(CodeGen &codegen, E
 									return RuztaCodeGenerator::Address();
 								}
 							} else {
-								res = ResourceLoader::load(global_class_path);
+								res = ResourceLoader::get_singleton()->load(global_class_path);
 								if (res.is_null()) {
 									_set_error("Can't load global class " + String(identifier) + ", cyclic reference?", p_expression);
 									r_error = ERR_COMPILATION_FAILED;
@@ -621,7 +635,7 @@ RuztaCodeGenerator::Address RuztaCompiler::_parse_expression(CodeGen &codegen, E
 
 			if (!call->is_super && call->callee->type == RuztaParser::Node::IDENTIFIER && RuztaParser::get_builtin_type(call->function_name) < Variant::VARIANT_MAX) {
 				gen->write_construct(result, RuztaParser::get_builtin_type(call->function_name), arguments);
-			} else if (!call->is_super && call->callee->type == RuztaParser::Node::IDENTIFIER && Variant::has_utility_function(call->function_name)) {
+			} else if (!call->is_super && call->callee->type == RuztaParser::Node::IDENTIFIER && RuztaVariantExtension::has_utility_function(call->function_name)) {
 				// Variant utility function.
 				gen->write_call_utility(result, call->function_name, arguments);
 			} else if (!call->is_super && call->callee->type == RuztaParser::Node::IDENTIFIER && RuztaUtilityFunctions::function_exists(call->function_name)) {
@@ -637,7 +651,7 @@ RuztaCodeGenerator::Address RuztaCompiler::_parse_expression(CodeGen &codegen, E
 				} else {
 					if (callee->type == RuztaParser::Node::IDENTIFIER) {
 						// Self function call.
-						if (ClassDB::has_method(codegen.script->native->get_name(), call->function_name)) {
+						if (ClassDB::class_has_method(codegen.script->native->get_name(), call->function_name)) {
 							// Native method, use faster path.
 							RuztaCodeGenerator::Address self;
 							self.mode = RuztaCodeGenerator::Address::SELF;
@@ -650,7 +664,7 @@ RuztaCodeGenerator::Address RuztaCompiler::_parse_expression(CodeGen &codegen, E
 								// Not exact arguments, but still can use method bind call.
 								gen->write_call_method_bind(result, self, method, arguments);
 							}
-						} else if (call->is_static || codegen.is_static || (codegen.function_node && codegen.function_node->is_static) || call->function_name == "new") {
+						} else if (call->is_static || codegen.is_static || (codegen.function_node && codegen.function_node->is_static) || call->function_name == StringName("new")) {
 							RuztaCodeGenerator::Address self;
 							self.mode = RuztaCodeGenerator::Address::CLASS;
 							if (is_awaited) {
@@ -699,7 +713,7 @@ RuztaCodeGenerator::Address RuztaCompiler::_parse_expression(CodeGen &codegen, E
 									} else {
 										class_name = base.type.native_type == StringName() ? base.type.script_type->get_instance_base_type() : base.type.native_type;
 									}
-									if (ClassDB::class_exists(class_name) && ClassDB::has_method(class_name, call->function_name)) {
+									if (ClassDB::class_exists(class_name) && ClassDB::class_has_method(class_name, call->function_name)) {
 										MethodBind *method = ClassDB::get_method(class_name, call->function_name);
 										if (_can_use_validate_call(method, arguments)) {
 											// Exact arguments, use validated call.
@@ -806,7 +820,7 @@ RuztaCodeGenerator::Address RuztaCompiler::_parse_expression(CodeGen &codegen, E
 					}
 #endif
 
-					if (MI && MI->value.getter == "") {
+					if (MI && MI->value.getter == StringName("")) {
 						// Remove result temp as we don't need it.
 						gen->pop_temporary();
 						// Faster than indexing self (as if no self. had been used).
@@ -1067,7 +1081,7 @@ RuztaCodeGenerator::Address RuztaCompiler::_parse_expression(CodeGen &codegen, E
 				// Get at (potential) root stack pos, so it can be returned.
 				RuztaCodeGenerator::Address base = _parse_expression(codegen, r_error, chain.back()->get()->base);
 				const bool base_known_type = base.type.has_type();
-				const bool base_is_shared = Variant::is_type_shared(base.type.builtin_type);
+				const bool base_is_shared = RuztaVariantExtension::is_type_shared(base.type.builtin_type);
 
 				if (r_error) {
 					return RuztaCodeGenerator::Address();
@@ -1171,7 +1185,7 @@ RuztaCodeGenerator::Address RuztaCompiler::_parse_expression(CodeGen &codegen, E
 				// Set back the values into their bases.
 				for (const ChainInfo &info : set_chain) {
 					bool known_type = assigned.type.has_type();
-					bool is_shared = Variant::is_type_shared(assigned.type.builtin_type);
+					bool is_shared = RuztaVariantExtension::is_type_shared(assigned.type.builtin_type);
 
 					if (!known_type || !is_shared) {
 						if (!known_type) {
@@ -1197,7 +1211,7 @@ RuztaCodeGenerator::Address RuztaCompiler::_parse_expression(CodeGen &codegen, E
 				}
 
 				bool known_type = assigned.type.has_type();
-				bool is_shared = Variant::is_type_shared(assigned.type.builtin_type);
+				bool is_shared = RuztaVariantExtension::is_type_shared(assigned.type.builtin_type);
 
 				if (!known_type || !is_shared) {
 					// If this is a class member property, also assign to it.
@@ -2045,7 +2059,7 @@ Error RuztaCompiler::_parse_block(CodeGen &codegen, const RuztaParser::SuiteNode
 				if (for_n->list && for_n->list->type == RuztaParser::Node::CALL) {
 					RuztaParser::CallNode *call = static_cast<RuztaParser::CallNode *>(for_n->list);
 					if (call->get_callee_type() == RuztaParser::Node::IDENTIFIER) {
-						if (static_cast<RuztaParser::IdentifierNode *>(call->callee)->name == "range") {
+						if (static_cast<RuztaParser::IdentifierNode *>(call->callee)->name == StringName("range")) {
 							range_call = call;
 						}
 					}
@@ -2463,7 +2477,7 @@ RuztaFunction *RuztaCompiler::_parse_function(Error &r_error, Ruzta *p_script, c
 	}
 
 #ifdef DEBUG_ENABLED
-	if (EngineDebugger::is_active()) {
+	if (EngineDebugger::get_singleton()->is_active()) {
 		String signature;
 		// Path.
 		if (!p_script->get_script_path().is_empty()) {
@@ -2638,7 +2652,7 @@ RuztaFunction *RuztaCompiler::_make_static_initializer(Error &r_error, Ruzta *p_
 	}
 
 #ifdef DEBUG_ENABLED
-	if (EngineDebugger::is_active()) {
+	if (EngineDebugger::get_singleton()->is_active()) {
 		String signature;
 		// Path.
 		if (!p_script->get_script_path().is_empty()) {
@@ -2753,10 +2767,10 @@ Error RuztaCompiler::_prepare_compilation(Ruzta *p_script, const RuztaParser::Cl
 	p_script->clearing = false;
 
 	p_script->tool = parser->is_tool();
-	p_script->_is_abstract = p_class->is_abstract;
+	p_script->is_abstract = p_class->is_abstract;
 
 	if (p_script->local_name != StringName()) {
-		if (ClassDB::class_exists(p_script->local_name) && ClassDB::is_class_exposed(p_script->local_name)) {
+		if (ClassDB::class_exists(p_script->local_name) /* && ClassDB::is_class_exposed(p_script->local_name) */) {
 			_set_error(vformat(R"(The class "%s" shadows a native class)", p_script->local_name), p_class);
 			return ERR_ALREADY_EXISTS;
 		}
@@ -3050,10 +3064,10 @@ Error RuztaCompiler::_compile_class(Ruzta *p_script, const RuztaParser::ClassNod
 		for (RBSet<Object *>::Element *E = p_script->instances.front(); E;) {
 			RBSet<Object *>::Element *N = E->next();
 
-			ScriptInstance *si = E->get()->get_script_instance();
+			ScriptInstance *si = static_cast<ScriptInstance *>(godot::internal::gdextension_interface_object_get_script_instance(E->get(), RuztaLanguage::get_singleton()));
 			if (si->is_placeholder()) {
 #ifdef TOOLS_ENABLED
-				PlaceHolderScriptInstance *psi = static_cast<PlaceHolderScriptInstance *>(si);
+				void *psi = static_cast<void *>(si);
 
 				if (p_script->is_tool()) {
 					//re-create as an instance
@@ -3123,7 +3137,7 @@ void RuztaCompiler::convert_to_initializer_type(Variant &p_variant, const RuztaP
 		if (Variant::can_convert_strict(init_t.builtin_type, member_t.builtin_type)) {
 			const Variant *v = &p_node->initializer->reduced_value;
 			GDExtensionCallError ce;
-			Variant::construct(member_t.builtin_type, p_variant, &v, 1, ce);
+			RuztaVariantExtension::construct(member_t.builtin_type, p_variant, &v, 1, ce);
 		}
 	}
 }

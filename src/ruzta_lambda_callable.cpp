@@ -2,10 +2,12 @@
 /*  ruzta_lambda_callable.cpp                                          */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -59,7 +61,7 @@ String RuztaLambdaCallable::get_as_text() const {
 		return "<invalid lambda>";
 	}
 	if (function->get_name() != StringName()) {
-		return function->get_name().operator String() + "(lambda)";
+		return String(function->get_name()) + "(lambda)";
 	}
 	return "(anonymous lambda)";
 }
@@ -73,7 +75,7 @@ CallableCustom::CompareLessFunc RuztaLambdaCallable::get_compare_less_func() con
 }
 
 ObjectID RuztaLambdaCallable::get_object() const {
-	return script->get_instance_id();
+	return ObjectID(script->get_instance_id());
 }
 
 StringName RuztaLambdaCallable::get_method() const {
@@ -182,7 +184,7 @@ String RuztaLambdaSelfCallable::get_as_text() const {
 		return "<invalid self lambda>";
 	}
 	if (function->get_name() != StringName()) {
-		return function->get_name().operator String() + "(self lambda)";
+		return String(function->get_name()) + "(self lambda)";
 	}
 	return "(anonymous self lambda)";
 }
@@ -196,7 +198,7 @@ CallableCustom::CompareLessFunc RuztaLambdaSelfCallable::get_compare_less_func()
 }
 
 ObjectID RuztaLambdaSelfCallable::get_object() const {
-	return object->get_instance_id();
+	return ObjectID(object->get_instance_id());
 }
 
 StringName RuztaLambdaSelfCallable::get_method() const {
@@ -214,7 +216,7 @@ int RuztaLambdaSelfCallable::get_argument_count(bool &r_is_valid) const {
 
 void RuztaLambdaSelfCallable::call(const Variant **p_arguments, int p_argcount, Variant &r_return_value, GDExtensionCallError &r_call_error) const {
 #ifdef DEBUG_ENABLED
-	if (object->get_script_instance() == nullptr || object->get_script_instance()->get_language() != RuztaLanguage::get_singleton()) {
+	if (!((Ref<Script>)object->get_script()).is_valid() || godot::internal::gdextension_interface_object_get_script_instance(object, RuztaLanguage::get_singleton())) {
 		ERR_PRINT("Trying to call a lambda with an invalid instance.");
 		r_call_error.error = GDExtensionCallErrorType::GDEXTENSION_CALL_ERROR_INSTANCE_IS_NULL;
 		return;
@@ -247,7 +249,7 @@ void RuztaLambdaSelfCallable::call(const Variant **p_arguments, int p_argcount, 
 			args[i + captures_amount] = p_arguments[i];
 		}
 
-		r_return_value = function->call(static_cast<RuztaInstance *>(object->get_script_instance()), args, total_argcount, r_call_error);
+		r_return_value = function->call(static_cast<RuztaInstance *>(godot::internal::gdextension_interface_object_get_script_instance(object, RuztaLanguage::get_singleton()))), args, total_argcount, r_call_error);
 		switch (r_call_error.error) {
 			case GDExtensionCallErrorType::GDEXTENSION_CALL_ERROR_INVALID_ARGUMENT:
 				r_call_error.argument -= captures_amount;
@@ -276,7 +278,7 @@ void RuztaLambdaSelfCallable::call(const Variant **p_arguments, int p_argcount, 
 				break;
 		}
 	} else {
-		r_return_value = function->call(static_cast<RuztaInstance *>(object->get_script_instance()), p_arguments, p_argcount, r_call_error);
+		r_return_value = function->call(static_cast<RuztaInstance *>(godot::internal::gdextension_interface_object_get_script_instance(object, RuztaLanguage::get_singleton())), p_arguments, p_argcount, r_call_error);
 	}
 }
 

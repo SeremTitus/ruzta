@@ -2,10 +2,12 @@
 /*  ruzta_warning.h                                                    */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -32,9 +34,13 @@
 
 #ifdef DEBUG_ENABLED
 
+#include "ruzta_variant/ruzta_variant_extension.h"
+
 #include <godot_cpp/classes/object.hpp> // original: core/object/object.h
 #include <godot_cpp/variant/string.hpp> // original: core/string/ustring.h
 #include <godot_cpp/templates/vector.hpp> // original: core/templates/vector.h
+
+using namespace godot;
 
 class RuztaWarning {
 public:

@@ -2,10 +2,12 @@
 /*  ruzta_language_server.h                                            */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -32,7 +34,7 @@
 
 #include "ruzta_language_protocol.h"
 
-// TODO: #include "editor/plugins/editor_plugin.h" // original: editor/plugins/editor_plugin.h
+#include <godot_cpp/classes/editor_plugin.hpp> // original: editor/plugins/editor_plugin.h
 
 class RuztaLanguageServer : public EditorPlugin {
 	GDCLASS(RuztaLanguageServer, EditorPlugin);
@@ -46,7 +48,7 @@ class RuztaLanguageServer : public EditorPlugin {
 	bool started = false;
 	bool use_thread = false;
 	String host = "127.0.0.1";
-	int port = 6005;
+	int port = 1920;
 	int poll_limit_usec = 100000;
 	static void thread_main(void *p_userdata);
 

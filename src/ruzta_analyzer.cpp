@@ -2,10 +2,12 @@
 /*  ruzta_analyzer.cpp                                                 */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -36,7 +38,7 @@
 
 #include <godot_cpp/classes/engine.hpp> // original: core/config/engine.h
 #include <godot_cpp/classes/project_settings.hpp> // original: core/config/project_settings.h
-#include <godot_cpp/core/constants.hpp> // original: core/core_constants.h
+#include "ruzta_variant/core_constants.h" // original: core/core_constants.h
 #include <godot_cpp/classes/file_access.hpp> // original: core/io/file_access.h
 #include <godot_cpp/classes/resource_loader.hpp> // original: core/io/resource_loader.h
 #include <godot_cpp/core/class_db.hpp> // original: core/object/class_db.h
@@ -44,37 +46,32 @@
 #include <godot_cpp/templates/hash_map.hpp> // original: core/templates/hash_map.h
 #include <godot_cpp/classes/node.hpp> // original: scene/main/node.h
 
-#if defined(TOOLS_ENABLED) && !defined(DISABLE_DEPRECATED)
-#define SUGGEST_GODOT4_RENAMES
-// TODO: #include "editor/project_upgrade/renames_map_3_to_4.h" // original: editor/project_upgrade/renames_map_3_to_4.h
-#endif
-
 #define UNNAMED_ENUM "<anonymous enum>"
 #define ENUM_SEPARATOR "."
 
 static MethodInfo info_from_utility_func(const StringName &p_function) {
-	ERR_FAIL_COND_V(!Variant::has_utility_function(p_function), MethodInfo());
+	ERR_FAIL_COND_V(!RuztaVariantExtension::has_utility_function(p_function), MethodInfo());
 
 	MethodInfo info(p_function);
 
-	if (Variant::has_utility_function_return_value(p_function)) {
-		info.return_val.type = Variant::get_utility_function_return_type(p_function);
+	if (RuztaVariantExtension::has_utility_function_return_value(p_function)) {
+		info.return_val.type = RuztaVariantExtension::get_utility_function_return_type(p_function);
 		if (info.return_val.type == Variant::NIL) {
 			info.return_val.usage |= PROPERTY_USAGE_NIL_IS_VARIANT;
 		}
 	}
 
-	if (Variant::is_utility_function_vararg(p_function)) {
+	if (RuztaVariantExtension::is_utility_function_vararg(p_function)) {
 		info.flags |= METHOD_FLAG_VARARG;
 	} else {
-		for (int i = 0; i < Variant::get_utility_function_argument_count(p_function); i++) {
+		for (int i = 0; i < RuztaVariantExtension::get_utility_function_argument_count(p_function); i++) {
 			PropertyInfo pi;
 #ifdef DEBUG_ENABLED
-			pi.name = Variant::get_utility_function_argument_name(p_function, i);
+			pi.name = RuztaVariantExtension::get_utility_function_argument_name(p_function, i);
 #else
 			pi.name = "arg" + itos(i + 1);
 #endif // DEBUG_ENABLED
-			pi.type = Variant::get_utility_function_argument_type(p_function, i);
+			pi.type = RuztaVariantExtension::get_utility_function_argument_type(p_function, i);
 			info.arguments.push_back(pi);
 		}
 	}
@@ -142,7 +139,7 @@ static RuztaParser::DataType make_enum_type(const StringName &p_enum_name, const
 	if (p_base_name.is_empty()) {
 		type.native_type = p_enum_name;
 	} else {
-		type.native_type = p_base_name + ENUM_SEPARATOR + p_enum_name;
+		type.native_type = p_base_name + String(ENUM_SEPARATOR)+ p_enum_name;
 	}
 
 	return type;
@@ -161,10 +158,10 @@ static RuztaParser::DataType make_native_enum_type(const StringName &p_enum_name
 	// Find out which base class declared the enum, so the name is always the same even when coming from other contexts.
 	StringName native_base = p_native_class;
 	while (true && native_base != StringName()) {
-		if (ClassDB::has_enum(native_base, p_enum_name, true)) {
+		if (ClassDB::class_has_enum(native_base, p_enum_name, true)) {
 			break;
 		}
-		native_base = ClassDB::get_parent_class_nocheck(native_base);
+		native_base = ClassDB::get_parent_class(native_base);
 	}
 
 	RuztaParser::DataType type = make_enum_type(p_enum_name, native_base, p_meta);
@@ -175,10 +172,10 @@ static RuztaParser::DataType make_native_enum_type(const StringName &p_enum_name
 	}
 
 	List<StringName> enum_values;
-	ClassDB::get_enum_constants(native_base, p_enum_name, &enum_values, true);
+	ClassDB::class_get_enum_constants(native_base, p_enum_name, &enum_values, true);
 
 	for (const StringName &E : enum_values) {
-		type.enum_values[E] = ClassDB::get_integer_constant(native_base, E);
+		type.enum_values[E] = ClassDB::class_get_integer_constant(native_base, E);
 	}
 
 	return type;
@@ -193,10 +190,10 @@ static RuztaParser::DataType make_builtin_enum_type(const StringName &p_enum_nam
 	}
 
 	List<StringName> enum_values;
-	Variant::get_enumerations_for_enum(p_type, p_enum_name, &enum_values);
+	RuztaVariantExtension::get_enumerations_for_enum(p_type, p_enum_name, &enum_values);
 
 	for (const StringName &E : enum_values) {
-		type.enum_values[E] = Variant::get_enum_value(p_type, p_enum_name, E);
+		type.enum_values[E] = RuztaVariantExtension::get_enum_value(p_type, p_enum_name, E);
 	}
 
 	return type;
@@ -250,17 +247,29 @@ bool RuztaAnalyzer::has_member_name_conflict_in_script_class(const StringName &p
 	return false;
 }
 
+auto ClassDB_has_property = [](const StringName &p_class, const StringName &p_property) -> bool {
+	bool has_property = false;
+	godot::TypedArray<Dictionary> property_list = ClassDB::class_get_property_list(p_class);
+	for (Dictionary property : property_list) {
+		if (property.has("name") && property["name"] == p_property) {
+			has_property = true;
+		}
+	}
+	return has_property;
+};
+
 bool RuztaAnalyzer::has_member_name_conflict_in_native_type(const StringName &p_member_name, const StringName &p_native_type_string) {
-	if (ClassDB::has_signal(p_native_type_string, p_member_name)) {
+	if (ClassDB::class_has_signal(p_native_type_string, p_member_name)) {
 		return true;
 	}
-	if (ClassDB::has_property(p_native_type_string, p_member_name)) {
+
+	if (ClassDB_has_property(p_native_type_string, p_member_name)) {
 		return true;
 	}
-	if (ClassDB::has_integer_constant(p_native_type_string, p_member_name)) {
+	if (ClassDB::class_has_integer_constant(p_native_type_string, p_member_name)) {
 		return true;
 	}
-	if (p_member_name == CoreStringName(script)) {
+	if (p_member_name == StringName("script")) {
 		return true;
 	}
 
@@ -745,7 +754,7 @@ RuztaParser::DataType RuztaAnalyzer::resolve_datatype(RuztaParser::TypeNode *p_t
 			if (p_type->type_chain.size() == 2) {
 				// May be nested enum.
 				const StringName enum_name = p_type->type_chain[1]->name;
-				if (Variant::has_enum(builtin_type, enum_name)) {
+				if (RuztaVariantExtension::has_enum(builtin_type, enum_name)) {
 					result = make_builtin_enum_type(enum_name, builtin_type, true);
 					return result;
 				} else {
@@ -798,13 +807,13 @@ RuztaParser::DataType RuztaAnalyzer::resolve_datatype(RuztaParser::TypeNode *p_t
 					}
 					result = ref->get_parser()->head->get_datatype();
 				} else {
-					result = make_script_meta_type(ResourceLoader::load(path, "Script"));
+					result = make_script_meta_type(ResourceLoader::get_singleton()->load(path, "Script"));
 				}
 			}
 		} else if (ProjectSettings::get_singleton()->has_autoload(first) && ProjectSettings::get_singleton()->get_autoload(first).is_singleton) {
 			const ProjectSettings::AutoloadInfo &autoload = ProjectSettings::get_singleton()->get_autoload(first);
 			String script_path;
-			if (ResourceLoader::get_resource_type(autoload.path) == "PackedScene") {
+			if (ResourceLoader::get_singleton()->get_resource_type(autoload.path) == "PackedScene") {
 				// Try to get script from scene if possible.
 				if (RuztaLanguage::get_singleton()->has_any_global_constant(autoload.name)) {
 					Variant constant = RuztaLanguage::get_singleton()->get_any_global_constant(autoload.name);
@@ -816,7 +825,7 @@ RuztaParser::DataType RuztaAnalyzer::resolve_datatype(RuztaParser::TypeNode *p_t
 						}
 					}
 				}
-			} else if (ResourceLoader::get_resource_type(autoload.path) == "Ruzta") {
+			} else if (ResourceLoader::get_singleton()->get_resource_type(autoload.path) == "Ruzta") {
 				script_path = autoload.path;
 			}
 			if (script_path.is_empty()) {
@@ -832,7 +841,7 @@ RuztaParser::DataType RuztaAnalyzer::resolve_datatype(RuztaParser::TypeNode *p_t
 				return bad_type;
 			}
 			result = ref->get_parser()->head->get_datatype();
-		} else if (ClassDB::has_enum(parser->current_class->base_type.native_type, first)) {
+		} else if (ClassDB::class_has_enum(parser->current_class->base_type.native_type, first)) {
 			// Native enum in current class.
 			result = make_native_enum_type(first, parser->current_class->base_type.native_type);
 		} else if (CoreConstants::is_global_enum(first)) {
@@ -919,7 +928,7 @@ RuztaParser::DataType RuztaAnalyzer::resolve_datatype(RuztaParser::TypeNode *p_t
 			}
 		} else if (result.kind == RuztaParser::DataType::NATIVE) {
 			// Only enums allowed for native.
-			if (ClassDB::has_enum(result.native_type, p_type->type_chain[1]->name)) {
+			if (ClassDB::class_has_enum(result.native_type, p_type->type_chain[1]->name)) {
 				if (p_type->type_chain.size() > 2) {
 					push_error(R"(Enums cannot contain nested types.)", p_type->type_chain[2]);
 					return bad_type;
@@ -1329,7 +1338,7 @@ void RuztaAnalyzer::resolve_class_interface(RuztaParser::ClassNode *p_class, con
 		if (!has_static_data && p_class->annotated_static_unload) {
 			RuztaParser::Node *static_unload = nullptr;
 			for (RuztaParser::AnnotationNode *node : p_class->annotations) {
-				if (node->name == "@static_unload") {
+				if (node->name == String("@static_unload")) {
 					static_unload = node;
 					break;
 				}
@@ -1710,7 +1719,7 @@ void RuztaAnalyzer::resolve_annotation(RuztaParser::AnnotationNode *p_annotation
 			Variant converted_to;
 			const Variant *converted_from = &value;
 			GDExtensionCallError call_error;
-			Variant::construct(argument_info.type, converted_to, &converted_from, 1, call_error);
+			RuztaVariantExtension::construct(argument_info.type, converted_to, &converted_from, 1, call_error);
 
 			if (call_error.error != GDExtensionCallErrorType::GDEXTENSION_CALL_OK) {
 				push_error(vformat(R"(Cannot convert argument %d of annotation "%s" from "%s" to "%s".)", i + 1, p_annotation->name, Variant::get_type_name(value.get_type()), Variant::get_type_name(argument_info.type)), argument);
@@ -2262,7 +2271,7 @@ void RuztaAnalyzer::resolve_for(RuztaParser::ForNode *p_for) {
 		if (p_for->list->type == RuztaParser::Node::CALL) {
 			RuztaParser::CallNode *call = static_cast<RuztaParser::CallNode *>(p_for->list);
 			if (call->get_callee_type() == RuztaParser::Node::IDENTIFIER) {
-				if (static_cast<RuztaParser::IdentifierNode *>(call->callee)->name == "range") {
+				if (static_cast<RuztaParser::IdentifierNode *>(call->callee)->name == String("range")) {
 					if (call->arguments.is_empty()) {
 						push_error(R"*(Invalid call for "range()" function. Expected at least 1 argument, none given.)*", call);
 					} else if (call->arguments.size() > 3) {
@@ -2310,7 +2319,7 @@ void RuztaAnalyzer::resolve_for(RuztaParser::ForNode *p_for) {
 			List<RuztaParser::DataType> par_types;
 			int default_arg_count = 0;
 			BitField<MethodFlags> method_flags = {};
-			if (get_function_signature(p_for->list, false, list_type, CoreStringName(_iter_get), return_type, par_types, default_arg_count, method_flags)) {
+			if (get_function_signature(p_for->list, false, list_type, StringName("_iter_get"), return_type, par_types, default_arg_count, method_flags)) {
 				variable_type = return_type;
 				variable_type.type_source = list_type.type_source;
 			} else if (!list_type.is_hard_type()) {
@@ -2751,7 +2760,7 @@ void RuztaAnalyzer::update_const_expression_builtin_type(RuztaParser::Expression
 	Variant converted_to;
 	const Variant *converted_from = &p_expression->reduced_value;
 	GDExtensionCallError call_error;
-	Variant::construct(p_type.builtin_type, converted_to, &converted_from, 1, call_error);
+	RuztaVariantExtension::construct(p_type.builtin_type, converted_to, &converted_from, 1, call_error);
 	if (call_error.error) {
 		push_error(vformat(R"(Failed to convert a value of type "%s" to "%s".)", value_type.to_string(), p_type.to_string()), p_expression);
 		return;
@@ -2879,8 +2888,8 @@ void RuztaAnalyzer::reduce_assignment(RuztaParser::AssignmentNode *p_assignment)
 					if (id_type.is_hard_type()) {
 						switch (id_type.kind) {
 							case RuztaParser::DataType::BUILTIN:
-								// TODO: Change `Variant::is_type_shared()` to include packed arrays?
-								need_warn = !Variant::is_type_shared(id_type.builtin_type) && id_type.builtin_type < Variant::PACKED_BYTE_ARRAY;
+								// TODO: Change `RuztaVariantExtension::is_type_shared()` to include packed arrays?
+								need_warn = !RuztaVariantExtension::is_type_shared(id_type.builtin_type) && id_type.builtin_type < Variant::PACKED_BYTE_ARRAY;
 								break;
 							case RuztaParser::DataType::ENUM:
 								need_warn = true;
@@ -2923,7 +2932,7 @@ void RuztaAnalyzer::reduce_assignment(RuztaParser::AssignmentNode *p_assignment)
 		while (sub) {
 			const RuztaParser::DataType &base_type = sub->base->datatype;
 			if (base_type.is_hard_type() && base_type.is_read_only) {
-				if (base_type.kind == RuztaParser::DataType::BUILTIN && !Variant::is_type_shared(base_type.builtin_type)) {
+				if (base_type.kind == RuztaParser::DataType::BUILTIN && !RuztaVariantExtension::is_type_shared(base_type.builtin_type)) {
 					push_error("Cannot assign a new value to a read-only property.", p_assignment->assignee);
 					return;
 				}
@@ -3044,7 +3053,7 @@ void RuztaAnalyzer::reduce_assignment(RuztaParser::AssignmentNode *p_assignment)
 		RuztaParser::IdentifierNode *id = static_cast<RuztaParser::IdentifierNode *>(p_assignment->assignee);
 		// Use == 1 here because this assignment was already counted in the beginning of the function.
 		if (id->source == RuztaParser::IdentifierNode::LOCAL_VARIABLE && id->variable_source && id->variable_source->assignments == 1) {
-			parser->push_warning(p_assignment, RuztaWarning::UNASSIGNED_VARIABLE_OP_ASSIGN, id->name, Variant::get_operator_name(p_assignment->variant_op));
+			parser->push_warning(p_assignment, RuztaWarning::UNASSIGNED_VARIABLE_OP_ASSIGN, id->name, RuztaVariantExtension::get_operator_name(p_assignment->variant_op));
 		}
 	}
 #endif // DEBUG_ENABLED
@@ -3117,13 +3126,13 @@ void RuztaAnalyzer::reduce_binary_op(RuztaParser::BinaryOpNode *p_binary_op) {
 		p_binary_op->is_constant = true;
 		if (p_binary_op->variant_op < Variant::OP_MAX) {
 			bool valid = false;
-			Variant::evaluate(p_binary_op->variant_op, p_binary_op->left_operand->reduced_value, p_binary_op->right_operand->reduced_value, p_binary_op->reduced_value, valid);
+			RuztaVariantExtension::evaluate(p_binary_op->variant_op, p_binary_op->left_operand->reduced_value, p_binary_op->right_operand->reduced_value, p_binary_op->reduced_value, valid);
 			if (!valid) {
 				if (p_binary_op->reduced_value.get_type() == Variant::STRING) {
-					push_error(vformat(R"(%s in operator %s.)", p_binary_op->reduced_value, Variant::get_operator_name(p_binary_op->variant_op)), p_binary_op);
+					push_error(vformat(R"(%s in operator %s.)", p_binary_op->reduced_value, RuztaVariantExtension::get_operator_name(p_binary_op->variant_op)), p_binary_op);
 				} else {
 					push_error(vformat(R"(Invalid operands to operator %s, %s and %s.)",
-									   Variant::get_operator_name(p_binary_op->variant_op),
+									   RuztaVariantExtension::get_operator_name(p_binary_op->variant_op),
 									   Variant::get_type_name(p_binary_op->left_operand->reduced_value.get_type()),
 									   Variant::get_type_name(p_binary_op->right_operand->reduced_value.get_type())),
 							p_binary_op);
@@ -3158,7 +3167,7 @@ void RuztaAnalyzer::reduce_binary_op(RuztaParser::BinaryOpNode *p_binary_op) {
 		bool valid = false;
 		result = get_operation_type(p_binary_op->variant_op, left_type, right_type, valid, p_binary_op);
 		if (!valid) {
-			push_error(vformat(R"(Invalid operands "%s" and "%s" for "%s" operator.)", left_type.to_string(), right_type.to_string(), Variant::get_operator_name(p_binary_op->variant_op)), p_binary_op);
+			push_error(vformat(R"(Invalid operands "%s" and "%s" for "%s" operator.)", left_type.to_string(), right_type.to_string(), RuztaVariantExtension::get_operator_name(p_binary_op->variant_op)), p_binary_op);
 		} else if (!result.is_hard_type()) {
 			mark_node_unsafe(p_binary_op);
 		}
@@ -3168,60 +3177,6 @@ void RuztaAnalyzer::reduce_binary_op(RuztaParser::BinaryOpNode *p_binary_op) {
 
 	p_binary_op->set_datatype(result);
 }
-
-#ifdef SUGGEST_GODOT4_RENAMES
-const char *get_rename_from_map(const char *map[][2], String key) {
-	for (int index = 0; map[index][0]; index++) {
-		if (map[index][0] == key) {
-			return map[index][1];
-		}
-	}
-	return nullptr;
-}
-
-// Checks if an identifier/function name has been renamed in Godot 4, uses ProjectConverter3To4 for rename map.
-// Returns the new name if found, nullptr otherwise.
-const char *check_for_renamed_identifier(String identifier, RuztaParser::Node::Type type) {
-	switch (type) {
-		case RuztaParser::Node::IDENTIFIER: {
-			// Check properties
-			const char *result = get_rename_from_map(RenamesMap3To4::ruzta_properties_renames, identifier);
-			if (result) {
-				return result;
-			}
-			// Check enum values
-			result = get_rename_from_map(RenamesMap3To4::enum_renames, identifier);
-			if (result) {
-				return result;
-			}
-			// Check color constants
-			result = get_rename_from_map(RenamesMap3To4::color_renames, identifier);
-			if (result) {
-				return result;
-			}
-			// Check type names
-			result = get_rename_from_map(RenamesMap3To4::class_renames, identifier);
-			if (result) {
-				return result;
-			}
-			return get_rename_from_map(RenamesMap3To4::builtin_types_renames, identifier);
-		}
-		case RuztaParser::Node::CALL: {
-			const char *result = get_rename_from_map(RenamesMap3To4::ruzta_function_renames, identifier);
-			if (result) {
-				return result;
-			}
-			// Built-in Types are mistaken for function calls when the built-in type is not found.
-			// Check built-in types if function rename not found
-			return get_rename_from_map(RenamesMap3To4::builtin_types_renames, identifier);
-		}
-		// Signal references don't get parsed through the RuztaAnalyzer. No support for signal rename hints.
-		default:
-			// No rename found, return null
-			return nullptr;
-	}
-}
-#endif // SUGGEST_GODOT4_RENAMES
 
 void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, bool p_is_root) {
 	bool all_is_constant = true;
@@ -3289,7 +3244,7 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 
 				GDExtensionCallError err;
 				Variant value;
-				Variant::construct(builtin_type, value, (const Variant **)args.ptr(), args.size(), err);
+				RuztaVariantExtension::construct(builtin_type, value, (const Variant **)args.ptr(), args.size(), err);
 
 				switch (err.error) {
 					case GDExtensionCallErrorType::GDEXTENSION_CALL_ERROR_INVALID_ARGUMENT:
@@ -3359,7 +3314,7 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 				}
 
 				List<MethodInfo> constructors;
-				Variant::get_constructor_list(builtin_type, &constructors);
+				RuztaVariantExtension::get_constructor_list(builtin_type, &constructors);
 				bool match = false;
 
 				for (const MethodInfo &info : constructors) {
@@ -3494,14 +3449,14 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 			}
 			p_call->set_datatype(type_from_property(function_info.return_val));
 			return;
-		} else if (Variant::has_utility_function(function_name)) {
+		} else if (RuztaVariantExtension::has_utility_function(function_name)) {
 			MethodInfo function_info = info_from_utility_func(function_name);
 
 			if (!p_is_root && !p_is_await && function_info.return_val.type == Variant::NIL && ((function_info.return_val.usage & PROPERTY_USAGE_NIL_IS_VARIANT) == 0)) {
 				push_error(vformat(R"*(Cannot get return value of call to "%s()" because it returns "void".)*", function_name), p_call);
 			}
 
-			if (all_is_constant && Variant::get_utility_function_type(function_name) == Variant::UTILITY_FUNC_TYPE_MATH) {
+			if (all_is_constant && RuztaVariantExtension::get_utility_function_type(function_name) == RuztaVariantExtension::UTILITY_FUNC_TYPE_MATH) {
 				// Can call on compilation.
 				Vector<const Variant *> args;
 				for (int i = 0; i < p_call->arguments.size(); i++) {
@@ -3510,7 +3465,7 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 
 				Variant value;
 				GDExtensionCallError err;
-				Variant::call_utility_function(function_name, &value, (const Variant **)args.ptr(), args.size(), err);
+				RuztaVariantExtension::call_utility_function(function_name, &value, (const Variant **)args.ptr(), args.size(), err);
 
 				switch (err.error) {
 					case GDExtensionCallErrorType::GDEXTENSION_CALL_ERROR_INVALID_ARGUMENT:
@@ -3747,18 +3702,7 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 		}
 		if (!found && (is_self || (base_type.is_hard_type() && base_type.kind == RuztaParser::DataType::BUILTIN))) {
 			String base_name = is_self && !p_call->is_super ? "self" : base_type.to_string();
-#ifdef SUGGEST_GODOT4_RENAMES
-			String rename_hint;
-			if (GLOBAL_GET_CACHED(bool, "debug/ruzta/warnings/renamed_in_godot_4_hint")) {
-				const char *renamed_function_name = check_for_renamed_identifier(p_call->function_name, p_call->type);
-				if (renamed_function_name) {
-					rename_hint = " " + vformat(R"(Did you mean to use "%s"?)", String(renamed_function_name) + "()");
-				}
-			}
-			push_error(vformat(R"*(Function "%s()" not found in base %s.%s)*", p_call->function_name, base_name, rename_hint), p_call->is_super ? p_call : p_call->callee);
-#else
 			push_error(vformat(R"*(Function "%s()" not found in base %s.)*", p_call->function_name, base_name), p_call->is_super ? p_call : p_call->callee);
-#endif // SUGGEST_GODOT4_RENAMES
 		} else if (!found && (!p_call->is_super && base_type.is_hard_type() && base_type.is_meta_type)) {
 			push_error(vformat(R"*(Static function "%s()" not found in base "%s".)*", p_call->function_name, base_type.to_string()), p_call);
 		}
@@ -3910,7 +3854,7 @@ RuztaParser::DataType RuztaAnalyzer::make_global_class_meta_type(const StringNam
 
 		return ref->get_parser()->head->get_datatype();
 	} else {
-		return make_script_meta_type(ResourceLoader::load(path, "Script"));
+		return make_script_meta_type(ResourceLoader::get_singleton()->load(path, "Script"));
 	}
 }
 
@@ -4072,10 +4016,10 @@ void RuztaAnalyzer::reduce_identifier_from_base(RuztaParser::IdentifierNode *p_i
 		if (base.is_meta_type) {
 			bool valid = false;
 
-			if (Variant::has_constant(base.builtin_type, name)) {
+			if (RuztaVariantExtension::has_constant(base.builtin_type, name)) {
 				valid = true;
 
-				const Variant constant_value = Variant::get_constant_value(base.builtin_type, name);
+				const Variant constant_value = RuztaVariantExtension::get_constant_value(base.builtin_type, name);
 
 				p_identifier->is_constant = true;
 				p_identifier->reduced_value = constant_value;
@@ -4083,35 +4027,24 @@ void RuztaAnalyzer::reduce_identifier_from_base(RuztaParser::IdentifierNode *p_i
 			}
 
 			if (!valid) {
-				const StringName enum_name = Variant::get_enum_for_enumeration(base.builtin_type, name);
+				const StringName enum_name = RuztaVariantExtension::get_enum_for_enumeration(base.builtin_type, name);
 				if (enum_name != StringName()) {
 					valid = true;
 
 					p_identifier->is_constant = true;
-					p_identifier->reduced_value = Variant::get_enum_value(base.builtin_type, enum_name, name);
+					p_identifier->reduced_value = RuztaVariantExtension::get_enum_value(base.builtin_type, enum_name, name);
 					p_identifier->set_datatype(make_builtin_enum_type(enum_name, base.builtin_type, false));
 				}
 			}
 
-			if (!valid && Variant::has_enum(base.builtin_type, name)) {
+			if (!valid && RuztaVariantExtension::has_enum(base.builtin_type, name)) {
 				valid = true;
 
 				p_identifier->set_datatype(make_builtin_enum_type(name, base.builtin_type, true));
 			}
 
 			if (!valid && base.is_hard_type()) {
-#ifdef SUGGEST_GODOT4_RENAMES
-				String rename_hint;
-				if (GLOBAL_GET_CACHED(bool, "debug/ruzta/warnings/renamed_in_godot_4_hint")) {
-					const char *renamed_identifier_name = check_for_renamed_identifier(name, p_identifier->type);
-					if (renamed_identifier_name) {
-						rename_hint = " " + vformat(R"(Did you mean to use "%s"?)", renamed_identifier_name);
-					}
-				}
-				push_error(vformat(R"(Cannot find member "%s" in base "%s".%s)", name, base.to_string(), rename_hint), p_identifier);
-#else
 				push_error(vformat(R"(Cannot find member "%s" in base "%s".)", name, base.to_string()), p_identifier);
-#endif // SUGGEST_GODOT4_RENAMES
 			}
 		} else {
 			switch (base.builtin_type) {
@@ -4130,32 +4063,21 @@ void RuztaAnalyzer::reduce_identifier_from_base(RuztaParser::IdentifierNode *p_i
 				default: {
 					GDExtensionCallError temp;
 					Variant dummy;
-					Variant::construct(base.builtin_type, dummy, nullptr, 0, temp);
+					RuztaVariantExtension::construct(base.builtin_type, dummy, nullptr, 0, temp);
 					List<PropertyInfo> properties;
-					dummy.get_property_list(&properties);
+					RuztaVariantExtension::get_property_list(&dummy, &properties);
 					for (const PropertyInfo &prop : properties) {
 						if (prop.name == name) {
 							p_identifier->set_datatype(type_from_property(prop));
 							return;
 						}
 					}
-					if (Variant::has_builtin_method(base.builtin_type, name)) {
-						p_identifier->set_datatype(make_callable_type(Variant::get_builtin_method_info(base.builtin_type, name)));
+					if (RuztaVariantExtension::has_builtin_method(base.builtin_type, name)) {
+						p_identifier->set_datatype(make_callable_type(RuztaVariantExtension::get_builtin_method_info(base.builtin_type, name)));
 						return;
 					}
 					if (base.is_hard_type()) {
-#ifdef SUGGEST_GODOT4_RENAMES
-						String rename_hint;
-						if (GLOBAL_GET_CACHED(bool, "debug/ruzta/warnings/renamed_in_godot_4_hint")) {
-							const char *renamed_identifier_name = check_for_renamed_identifier(name, p_identifier->type);
-							if (renamed_identifier_name) {
-								rename_hint = " " + vformat(R"(Did you mean to use "%s"?)", renamed_identifier_name);
-							}
-						}
-						push_error(vformat(R"(Cannot find member "%s" in base "%s".%s)", name, base.to_string(), rename_hint), p_identifier);
-#else
 						push_error(vformat(R"(Cannot find member "%s" in base "%s".)", name, base.to_string()), p_identifier);
-#endif // SUGGEST_GODOT4_RENAMES
 					}
 				}
 			}
@@ -4330,7 +4252,7 @@ void RuztaAnalyzer::reduce_identifier_from_base(RuztaParser::IdentifierNode *p_i
 		}
 
 		MethodInfo method_info;
-		if (ClassDB::has_property(native, name)) {
+		if (ClassDB_has_property(native, name)) {
 			StringName getter_name = ClassDB::get_property_getter(native, name);
 			MethodBind *getter = ClassDB::get_method(native, getter_name);
 			if (getter != nullptr) {
@@ -4346,27 +4268,27 @@ void RuztaAnalyzer::reduce_identifier_from_base(RuztaParser::IdentifierNode *p_i
 			p_identifier->source = RuztaParser::IdentifierNode::INHERITED_VARIABLE;
 			return;
 		}
-		if (ClassDB::get_signal(native, name, &method_info)) {
+		if (ClassDB::class_get_signal(native, name, &method_info)) {
 			// Signal is a type too.
 			p_identifier->set_datatype(make_signal_type(method_info));
 			p_identifier->source = RuztaParser::IdentifierNode::INHERITED_VARIABLE;
 			return;
 		}
-		if (ClassDB::has_enum(native, name)) {
+		if (ClassDB::class_has_enum(native, name)) {
 			p_identifier->set_datatype(make_native_enum_type(name, native));
 			p_identifier->source = RuztaParser::IdentifierNode::MEMBER_CONSTANT;
 			return;
 		}
 		bool valid = false;
 
-		int64_t int_constant = ClassDB::get_integer_constant(native, name, &valid);
+		int64_t int_constant = ClassDB::class_get_integer_constant(native, name, &valid);
 		if (valid) {
 			p_identifier->is_constant = true;
 			p_identifier->reduced_value = int_constant;
 			p_identifier->source = RuztaParser::IdentifierNode::MEMBER_CONSTANT;
 
 			// Check whether this constant, which exists, belongs to an enum
-			StringName enum_name = ClassDB::get_integer_constant_enum(native, name);
+			StringName enum_name = ClassDB::class_get_integer_constant_enum(native, name);
 			if (enum_name != StringName()) {
 				p_identifier->set_datatype(make_native_enum_type(enum_name, native, false));
 			} else {
@@ -4576,7 +4498,7 @@ void RuztaAnalyzer::reduce_identifier(RuztaParser::IdentifierNode *p_identifier,
 			result.kind = RuztaParser::DataType::NATIVE;
 			result.builtin_type = Variant::OBJECT;
 			result.native_type = StringName("Node");
-			if (ResourceLoader::get_resource_type(autoload.path) == "Ruzta") {
+			if (ResourceLoader::get_singleton()->get_resource_type(autoload.path) == "Ruzta") {
 				Ref<RuztaParserRef> single_parser = parser->get_depended_parser_for(autoload.path);
 				if (single_parser.is_valid()) {
 					Error err = single_parser->raise_status(RuztaParserRef::INHERITANCE_SOLVED);
@@ -4584,7 +4506,7 @@ void RuztaAnalyzer::reduce_identifier(RuztaParser::IdentifierNode *p_identifier,
 						result = type_from_metatype(single_parser->get_parser()->head->get_datatype());
 					}
 				}
-			} else if (ResourceLoader::get_resource_type(autoload.path) == "PackedScene") {
+			} else if (ResourceLoader::get_singleton()->get_resource_type(autoload.path) == "PackedScene") {
 				if (RuztaLanguage::get_singleton()->has_any_global_constant(name)) {
 					Variant constant = RuztaLanguage::get_singleton()->get_any_global_constant(name);
 					Node *node = Object::cast_to<Node>(constant);
@@ -4638,14 +4560,14 @@ void RuztaAnalyzer::reduce_identifier(RuztaParser::IdentifierNode *p_identifier,
 		return;
 	}
 
-	if (Variant::has_utility_function(name) || RuztaUtilityFunctions::function_exists(name)) {
+	if (RuztaVariantExtension::has_utility_function(name) || RuztaUtilityFunctions::function_exists(name)) {
 		p_identifier->is_constant = true;
 		p_identifier->reduced_value = Callable(memnew(RuztaUtilityCallable(name)));
 		MethodInfo method_info;
 		if (RuztaUtilityFunctions::function_exists(name)) {
 			method_info = RuztaUtilityFunctions::get_function_info(name);
 		} else {
-			method_info = Variant::get_utility_function_info(name);
+			method_info = RuztaVariantExtension::get_utility_function_info(name);
 		}
 		p_identifier->set_datatype(make_callable_type(method_info));
 		return;
@@ -4663,18 +4585,7 @@ void RuztaAnalyzer::reduce_identifier(RuztaParser::IdentifierNode *p_identifier,
 	}
 
 	// Not found.
-#ifdef SUGGEST_GODOT4_RENAMES
-	String rename_hint;
-	if (GLOBAL_GET_CACHED(bool, "debug/ruzta/warnings/renamed_in_godot_4_hint")) {
-		const char *renamed_identifier_name = check_for_renamed_identifier(name, p_identifier->type);
-		if (renamed_identifier_name) {
-			rename_hint = " " + vformat(R"(Did you mean to use "%s"?)", renamed_identifier_name);
-		}
-	}
-	push_error(vformat(R"(Identifier "%s" not declared in the current scope.%s)", name, rename_hint), p_identifier);
-#else
 	push_error(vformat(R"(Identifier "%s" not declared in the current scope.)", name), p_identifier);
-#endif // SUGGEST_GODOT4_RENAMES
 	RuztaParser::DataType dummy;
 	dummy.kind = RuztaParser::DataType::VARIANT;
 	p_identifier->set_datatype(dummy); // Just so type is set to something.
@@ -4728,7 +4639,7 @@ void RuztaAnalyzer::reduce_preload(RuztaParser::PreloadNode *p_preload) {
 			p_preload->resolved_path = parser->script_path.get_base_dir().path_join(p_preload->resolved_path);
 		}
 		p_preload->resolved_path = p_preload->resolved_path.simplify_path();
-		if (!ResourceLoader::exists(p_preload->resolved_path)) {
+		if (!ResourceLoader::get_singleton()->exists(p_preload->resolved_path)) {
 			Ref<FileAccess> file_check = FileAccess::create(FileAccess::ACCESS_RESOURCES);
 
 			if (file_check->file_exists(p_preload->resolved_path)) {
@@ -4740,8 +4651,8 @@ void RuztaAnalyzer::reduce_preload(RuztaParser::PreloadNode *p_preload) {
 			// TODO: Don't load if validating: use completion cache.
 
 			// Must load Ruzta separately to permit cyclic references
-			// as ResourceLoader::load() detects and rejects those.
-			const String &res_type = ResourceLoader::get_resource_type(p_preload->resolved_path);
+			// as ResourceLoader::get_singleton()->load() detects and rejects those.
+			const String &res_type = ResourceLoader::get_singleton()->get_resource_type(p_preload->resolved_path);
 			if (res_type == "Ruzta") {
 				Error err = OK;
 				Ref<Ruzta> res = get_depended_shallow_script(p_preload->resolved_path, err);
@@ -4751,9 +4662,9 @@ void RuztaAnalyzer::reduce_preload(RuztaParser::PreloadNode *p_preload) {
 				}
 			} else {
 				Error err = OK;
-				p_preload->resource = ResourceLoader::load(p_preload->resolved_path, res_type, ResourceFormatLoader::CACHE_MODE_REUSE, &err);
+				p_preload->resource = ResourceLoader::get_singleton()->load(p_preload->resolved_path, res_type, ResourceFormatLoader::CACHE_MODE_REUSE, &err);
 				if (err == ERR_BUSY) {
-					p_preload->resource = ResourceLoader::ensure_resource_ref_override_for_outer_load(p_preload->resolved_path, res_type);
+					p_preload->resource = ResourceLoader::get_singleton()->ensure_resource_ref_override_for_outer_load(p_preload->resolved_path, res_type);
 				}
 				if (p_preload->resource.is_null()) {
 					push_error(vformat(R"(Could not preload resource file "%s".)", p_preload->resolved_path), p_preload->path);
@@ -5215,7 +5126,7 @@ void RuztaAnalyzer::reduce_type_test(RuztaParser::TypeTestNode *p_type_test) {
 		if (!is_type_compatible(test_type, operand_type)) {
 			push_error(vformat(R"(Expression is of type "%s" so it can't be of type "%s".)", operand_type.to_string(), test_type.to_string()), p_type_test->operand);
 		} else if (is_type_compatible(test_type, type_from_variant(p_type_test->operand->reduced_value, p_type_test->operand))) {
-			p_type_test->reduced_value = test_type.builtin_type != Variant::OBJECT || !p_type_test->operand->reduced_value.is_null();
+			p_type_test->reduced_value = test_type.builtin_type != Variant::OBJECT || p_type_test->operand->reduced_value != Variant();
 		}
 
 		return;
@@ -5245,7 +5156,8 @@ void RuztaAnalyzer::reduce_unary_op(RuztaParser::UnaryOpNode *p_unary_op) {
 
 	if (p_unary_op->operand->is_constant) {
 		p_unary_op->is_constant = true;
-		p_unary_op->reduced_value = Variant::evaluate(p_unary_op->variant_op, p_unary_op->operand->reduced_value, Variant());
+		bool valid = true
+		p_unary_op->reduced_value = RuztaVariantExtension::evaluate(p_unary_op->variant_op, p_unary_op->operand->reduced_value, Variant(), &true);
 		result = type_from_variant(p_unary_op->reduced_value, p_unary_op);
 	}
 
@@ -5257,7 +5169,7 @@ void RuztaAnalyzer::reduce_unary_op(RuztaParser::UnaryOpNode *p_unary_op) {
 		result = get_operation_type(p_unary_op->variant_op, operand_type, valid, p_unary_op);
 
 		if (!valid) {
-			push_error(vformat(R"(Invalid operand of type "%s" for unary operator "%s".)", operand_type.to_string(), Variant::get_operator_name(p_unary_op->variant_op)), p_unary_op);
+			push_error(vformat(R"(Invalid operand of type "%s" for unary operator "%s".)", operand_type.to_string(), RuztaVariantExtension::get_operator_name(p_unary_op->variant_op)), p_unary_op);
 		}
 	}
 
@@ -5405,7 +5317,7 @@ Variant RuztaAnalyzer::make_call_reduced_value(RuztaParser::CallNode *p_call, bo
 
 		Variant result;
 		GDExtensionCallError ce;
-		Variant::construct(type, result, argptrs, args.size(), ce);
+		RuztaVariantExtension::construct(type, result, argptrs, args.size(), ce);
 		if (ce.error) {
 			push_error(vformat(R"(Failed to construct "%s".)", Variant::get_type_name(type)), p_call);
 			return Variant();
@@ -5649,7 +5561,7 @@ RuztaParser::DataType RuztaAnalyzer::type_from_property(const PropertyInfo &p_pr
 			result.script_path = ScriptServer::get_global_class_path(p_property.class_name);
 			result.native_type = ScriptServer::get_global_class_native_base(p_property.class_name);
 
-			Ref<Script> scr = ResourceLoader::load(ScriptServer::get_global_class_path(p_property.class_name));
+			Ref<Script> scr = ResourceLoader::get_singleton()->load(ScriptServer::get_global_class_path(p_property.class_name));
 			if (scr.is_valid()) {
 				result.script_type = scr;
 			}
@@ -5677,7 +5589,7 @@ RuztaParser::DataType RuztaAnalyzer::type_from_property(const PropertyInfo &p_pr
 				elem_type.native_type = elem_type_name;
 			} else if (ScriptServer::is_global_class(elem_type_name)) {
 				// Just load this as it shouldn't be a Ruzta.
-				Ref<Script> script = ResourceLoader::load(ScriptServer::get_global_class_path(elem_type_name));
+				Ref<Script> script = ResourceLoader::get_singleton()->load(ScriptServer::get_global_class_path(elem_type_name));
 				elem_type.kind = RuztaParser::DataType::SCRIPT;
 				elem_type.builtin_type = Variant::OBJECT;
 				elem_type.native_type = script->get_instance_base_type();
@@ -5704,7 +5616,7 @@ RuztaParser::DataType RuztaAnalyzer::type_from_property(const PropertyInfo &p_pr
 				key_elem_type.native_type = key_elem_type_name;
 			} else if (ScriptServer::is_global_class(key_elem_type_name)) {
 				// Just load this as it shouldn't be a Ruzta.
-				Ref<Script> script = ResourceLoader::load(ScriptServer::get_global_class_path(key_elem_type_name));
+				Ref<Script> script = ResourceLoader::get_singleton()->load(ScriptServer::get_global_class_path(key_elem_type_name));
 				key_elem_type.kind = RuztaParser::DataType::SCRIPT;
 				key_elem_type.builtin_type = Variant::OBJECT;
 				key_elem_type.native_type = script->get_instance_base_type();
@@ -5729,7 +5641,7 @@ RuztaParser::DataType RuztaAnalyzer::type_from_property(const PropertyInfo &p_pr
 				value_elem_type.native_type = value_elem_type_name;
 			} else if (ScriptServer::is_global_class(value_elem_type_name)) {
 				// Just load this as it shouldn't be a Ruzta.
-				Ref<Script> script = ResourceLoader::load(ScriptServer::get_global_class_path(value_elem_type_name));
+				Ref<Script> script = ResourceLoader::get_singleton()->load(ScriptServer::get_global_class_path(value_elem_type_name));
 				value_elem_type.kind = RuztaParser::DataType::SCRIPT;
 				value_elem_type.builtin_type = Variant::OBJECT;
 				value_elem_type.native_type = script->get_instance_base_type();
@@ -5786,12 +5698,12 @@ bool RuztaAnalyzer::get_function_signature(RuztaParser::Node *p_source, bool p_i
 		// Construct a base type to get methods.
 		GDExtensionCallError err;
 		Variant dummy;
-		Variant::construct(p_base_type.builtin_type, dummy, nullptr, 0, err);
+		RuztaVariantExtension::construct(p_base_type.builtin_type, dummy, nullptr, 0, err);
 		if (err.error != GDExtensionCallErrorType::GDEXTENSION_CALL_OK) {
 			ERR_FAIL_V_MSG(false, "Could not construct base Variant type.");
 		}
 		List<MethodInfo> methods;
-		dummy.get_method_list(&methods);
+		RuztaVariantExtension::get_method_list(&dummy, &methods);
 
 		for (const MethodInfo &E : methods) {
 			if (E.name == p_function) {
@@ -6004,7 +5916,7 @@ void RuztaAnalyzer::is_shadowing(RuztaParser::IdentifierNode *p_identifier, cons
 				return;
 			}
 		}
-		if (Variant::has_utility_function(name)) {
+		if (RuztaVariantExtension::has_utility_function(name)) {
 			parser->push_warning(p_identifier, RuztaWarning::SHADOWED_GLOBAL_IDENTIFIER, p_context, name, "built-in function");
 			return;
 		} else if (class_exists(name)) {
@@ -6050,19 +5962,19 @@ void RuztaAnalyzer::is_shadowing(RuztaParser::IdentifierNode *p_identifier, cons
 	while (native_base_class != StringName()) {
 		ERR_FAIL_COND_MSG(!class_exists(native_base_class), "Non-existent native base class.");
 
-		if (ClassDB::has_method(native_base_class, name, true)) {
+		if (ClassDB::class_has_method(native_base_class, name, true)) {
 			parser->push_warning(p_identifier, RuztaWarning::SHADOWED_VARIABLE_BASE_CLASS, p_context, p_identifier->name, "method", native_base_class);
 			return;
-		} else if (ClassDB::has_signal(native_base_class, name, true)) {
+		} else if (ClassDB::class_has_signal(native_base_class, name, true)) {
 			parser->push_warning(p_identifier, RuztaWarning::SHADOWED_VARIABLE_BASE_CLASS, p_context, p_identifier->name, "signal", native_base_class);
 			return;
-		} else if (ClassDB::has_property(native_base_class, name, true)) {
+		} else if (ClassDB_has_property(native_base_class, name, true)) {
 			parser->push_warning(p_identifier, RuztaWarning::SHADOWED_VARIABLE_BASE_CLASS, p_context, p_identifier->name, "property", native_base_class);
 			return;
-		} else if (ClassDB::has_integer_constant(native_base_class, name, true)) {
+		} else if (ClassDB::class_has_integer_constant(native_base_class, name, true)) {
 			parser->push_warning(p_identifier, RuztaWarning::SHADOWED_VARIABLE_BASE_CLASS, p_context, p_identifier->name, "constant", native_base_class);
 			return;
-		} else if (ClassDB::has_enum(native_base_class, name, true)) {
+		} else if (ClassDB::class_has_enum(native_base_class, name, true)) {
 			parser->push_warning(p_identifier, RuztaWarning::SHADOWED_VARIABLE_BASE_CLASS, p_context, p_identifier->name, "enum", native_base_class);
 			return;
 		}
@@ -6121,14 +6033,14 @@ RuztaParser::DataType RuztaAnalyzer::get_operation_type(Variant::Operator p_oper
 		}
 	}
 
-	RuztaHelper::ValidatedOperatorEvaluator op_eval = Variant::get_validated_operator_evaluator(p_operation, a_type, b_type);
+	RuztaVariantExtension::ValidatedOperatorEvaluator op_eval = RuztaVariantExtension::get_validated_operator_evaluator(p_operation, a_type, b_type);
 	bool validated = op_eval != nullptr;
 
 	if (validated) {
 		r_valid = true;
 		result.type_source = hard_operation ? RuztaParser::DataType::ANNOTATED_INFERRED : RuztaParser::DataType::INFERRED;
 		result.kind = RuztaParser::DataType::BUILTIN;
-		result.builtin_type = Variant::get_operator_return_type(p_operation, a_type, b_type);
+		result.builtin_type = RuztaVariantExtension::get_operator_return_type(p_operation, a_type, b_type);
 	} else {
 		r_valid = !hard_operation;
 		result.kind = RuztaParser::DataType::VARIANT;
@@ -6416,7 +6328,7 @@ void RuztaAnalyzer::resolve_pending_lambda_bodies() {
 }
 
 bool RuztaAnalyzer::class_exists(const StringName &p_class) const {
-	return ClassDB::class_exists(p_class) && ClassDB::is_class_exposed(p_class);
+	return ClassDB::class_exists(p_class) /* && ClassDB::is_class_exposed(p_class) */;
 }
 
 Error RuztaAnalyzer::resolve_inheritance() {

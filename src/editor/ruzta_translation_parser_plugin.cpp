@@ -2,10 +2,12 @@
 /*  ruzta_translation_parser_plugin.cpp                                */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -35,20 +37,27 @@
 
 #include <godot_cpp/classes/resource_loader.hpp> // original: core/io/resource_loader.h
 
-void RuztaEditorTranslationParserPlugin::get_recognized_extensions(List<String> *r_extensions) const {
+PackedStringArray RuztaEditorTranslationParserPlugin::_get_recognized_extensions() const {
+	List<String> *r_extensions;
 	RuztaLanguage::get_singleton()->get_recognized_extensions(r_extensions);
+	PackedStringArray result;
+	for (String extension : *r_extensions) {
+		result.append(extension);
+	}
+	return result;
 }
 
-Error RuztaEditorTranslationParserPlugin::parse_file(const String &p_path, Vector<Vector<String>> *r_translations) {
+godot::TypedArray<PackedStringArray> RuztaEditorTranslationParserPlugin::_parse_file(const String &p_path) {
 	// Extract all translatable strings using the parsed tree from RuztaParser.
 	// The strategy is to find all ExpressionNode and AssignmentNode from the tree and extract strings if relevant, i.e
 	// Search strings in ExpressionNode -> CallNode -> tr(), set_text(), set_placeholder() etc.
 	// Search strings in AssignmentNode -> text = "__", tooltip_text = "__" etc.
 
 	Error err;
-	Ref<Resource> loaded_res = ResourceLoader::load(p_path, "", ResourceFormatLoader::CACHE_MODE_REUSE, &err);
+	Ref<Resource> loaded_res = ResourceLoader::get_singleton()->load(p_path, "", ResourceFormatLoader::CACHE_MODE_REUSE, &err);
 	ERR_FAIL_COND_V_MSG(err, err, "Failed to load " + p_path);
-
+	
+	godot::TypedArray<PackedStringArray> *r_translations;
 	translations = r_translations;
 
 	Ref<Ruzta> ruzta = loaded_res;
@@ -70,12 +79,12 @@ Error RuztaEditorTranslationParserPlugin::parse_file(const String &p_path, Vecto
 
 	comment_data = nullptr;
 
-	return OK;
+	return r_translations;
 }
 
 bool RuztaEditorTranslationParserPlugin::_is_constant_string(const RuztaParser::ExpressionNode *p_expression) {
 	ERR_FAIL_NULL_V(p_expression, false);
-	return p_expression->is_constant && p_expression->reduced_value.is_string();
+	return p_expression->is_constant && p_expression->reduced_value.get_type() == Variant::STRING;
 }
 
 String RuztaEditorTranslationParserPlugin::_parse_comment(int p_line, bool &r_skip) const {
@@ -126,7 +135,7 @@ void RuztaEditorTranslationParserPlugin::_add_id(const String &p_id, int p_line)
 		return;
 	}
 
-	translations->push_back({ p_id, String(), String(), comment, itos(p_line) });
+	translations->push_back(PackedStringArray{ p_id, String(), String(), comment, itos(p_line) });
 }
 
 void RuztaEditorTranslationParserPlugin::_add_id_ctx_plural(const Vector<String> &p_id_ctx_plural, int p_line) {

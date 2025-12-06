@@ -2,10 +2,12 @@
 /*  ruzta_tokenizer.h                                                  */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -34,6 +36,12 @@
 #include <godot_cpp/templates/list.hpp> // original: core/templates/list.h
 #include <godot_cpp/templates/vector.hpp> // original: core/templates/vector.h
 #include <godot_cpp/variant/variant.hpp> // original: core/variant/variant.h
+#include <godot_cpp/classes/text_server.hpp> // original:
+#include <godot_cpp/classes/text_server_manager.hpp> // original:
+
+using namespace godot;
+
+#define TS TextServerManager::get_singleton()->get_primary_interface()
 
 class RuztaTokenizer {
 public:
@@ -249,7 +257,7 @@ class RuztaTokenizerText : public RuztaTokenizer {
 	int length = 0;
 	Vector<int> continuation_lines;
 #ifdef DEBUG_ENABLED
-	Vector<String> keyword_list;
+	PackedStringArray keyword_list;
 #endif // DEBUG_ENABLED
 
 #ifdef TOOLS_ENABLED

@@ -2,10 +2,12 @@
 /*  ruzta_byte_codegen.h                                               */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -57,7 +59,11 @@ class RuztaByteCodeGenerator : public RuztaCodeGenerator {
 #endif
 
 		void cleanup() {
-			DEV_ASSERT(!cleaned);
+#ifdef DEV_ENABLED
+			if(!cleaned) {
+				CRASH_NOW();
+			}
+#endif
 			if (is_new_temporary) {
 				codegen->pop_temporary();
 			}
@@ -70,7 +76,13 @@ class RuztaByteCodeGenerator : public RuztaCodeGenerator {
 				target(p_target),
 				is_new_temporary(p_is_new_temporary),
 				codegen(p_codegen) {}
-		~CallTarget() { DEV_ASSERT(cleaned); }
+		~CallTarget() { 
+#ifdef DEV_ENABLED
+			if(cleaned) {
+				CRASH_NOW();
+			}
+#endif
+		}
 		CallTarget(const CallTarget &) = delete;
 		CallTarget &operator=(CallTarget &) = delete;
 	};
@@ -109,16 +121,16 @@ class RuztaByteCodeGenerator : public RuztaCodeGenerator {
 #ifdef TOOLS_ENABLED
 	Vector<StringName> named_globals;
 #endif
-	RBMap<RuztaHelper::ValidatedOperatorEvaluator, int> operator_func_map;
-	RBMap<RuztaHelper::ValidatedSetter, int> setters_map;
-	RBMap<RuztaHelper::ValidatedGetter, int> getters_map;
-	RBMap<RuztaHelper::ValidatedKeyedSetter, int> keyed_setters_map;
-	RBMap<RuztaHelper::ValidatedKeyedGetter, int> keyed_getters_map;
-	RBMap<RuztaHelper::ValidatedIndexedSetter, int> indexed_setters_map;
-	RBMap<RuztaHelper::ValidatedIndexedGetter, int> indexed_getters_map;
-	RBMap<RuztaHelper::ValidatedBuiltInMethod, int> builtin_method_map;
-	RBMap<RuztaHelper::ValidatedConstructor, int> constructors_map;
-	RBMap<RuztaHelper::ValidatedUtilityFunction, int> utilities_map;
+	RBMap<RuztaVariantExtension::ValidatedOperatorEvaluator, int> operator_func_map;
+	RBMap<RuztaVariantExtension::ValidatedSetter, int> setters_map;
+	RBMap<RuztaVariantExtension::ValidatedGetter, int> getters_map;
+	RBMap<RuztaVariantExtension::ValidatedKeyedSetter, int> keyed_setters_map;
+	RBMap<RuztaVariantExtension::ValidatedKeyedGetter, int> keyed_getters_map;
+	RBMap<RuztaVariantExtension::ValidatedIndexedSetter, int> indexed_setters_map;
+	RBMap<RuztaVariantExtension::ValidatedIndexedGetter, int> indexed_getters_map;
+	RBMap<RuztaVariantExtension::ValidatedBuiltInMethod, int> builtin_method_map;
+	RBMap<RuztaVariantExtension::ValidatedConstructor, int> constructors_map;
+	RBMap<RuztaVariantExtension::ValidatedUtilityFunction, int> utilities_map;
 	RBMap<RuztaUtilityFunctions::FunctionPtr, int> gds_utilities_map;
 	RBMap<MethodBind *, int> method_bind_map;
 	RBMap<RuztaFunction *, int> lambdas_map;
@@ -236,7 +248,7 @@ class RuztaByteCodeGenerator : public RuztaCodeGenerator {
 		return pos;
 	}
 
-	int get_operation_pos(const RuztaHelper::ValidatedOperatorEvaluator p_operation) {
+	int get_operation_pos(const RuztaVariantExtension::ValidatedOperatorEvaluator p_operation) {
 		if (operator_func_map.has(p_operation)) {
 			return operator_func_map[p_operation];
 		}
@@ -245,7 +257,7 @@ class RuztaByteCodeGenerator : public RuztaCodeGenerator {
 		return pos;
 	}
 
-	int get_setter_pos(const RuztaHelper::ValidatedSetter p_setter) {
+	int get_setter_pos(const RuztaVariantExtension::ValidatedSetter p_setter) {
 		if (setters_map.has(p_setter)) {
 			return setters_map[p_setter];
 		}
@@ -254,7 +266,7 @@ class RuztaByteCodeGenerator : public RuztaCodeGenerator {
 		return pos;
 	}
 
-	int get_getter_pos(const RuztaHelper::ValidatedGetter p_getter) {
+	int get_getter_pos(const RuztaVariantExtension::ValidatedGetter p_getter) {
 		if (getters_map.has(p_getter)) {
 			return getters_map[p_getter];
 		}
@@ -263,7 +275,7 @@ class RuztaByteCodeGenerator : public RuztaCodeGenerator {
 		return pos;
 	}
 
-	int get_keyed_setter_pos(const RuztaHelper::ValidatedKeyedSetter p_keyed_setter) {
+	int get_keyed_setter_pos(const RuztaVariantExtension::ValidatedKeyedSetter p_keyed_setter) {
 		if (keyed_setters_map.has(p_keyed_setter)) {
 			return keyed_setters_map[p_keyed_setter];
 		}
@@ -272,7 +284,7 @@ class RuztaByteCodeGenerator : public RuztaCodeGenerator {
 		return pos;
 	}
 
-	int get_keyed_getter_pos(const RuztaHelper::ValidatedKeyedGetter p_keyed_getter) {
+	int get_keyed_getter_pos(const RuztaVariantExtension::ValidatedKeyedGetter p_keyed_getter) {
 		if (keyed_getters_map.has(p_keyed_getter)) {
 			return keyed_getters_map[p_keyed_getter];
 		}
@@ -281,7 +293,7 @@ class RuztaByteCodeGenerator : public RuztaCodeGenerator {
 		return pos;
 	}
 
-	int get_indexed_setter_pos(const RuztaHelper::ValidatedIndexedSetter p_indexed_setter) {
+	int get_indexed_setter_pos(const RuztaVariantExtension::ValidatedIndexedSetter p_indexed_setter) {
 		if (indexed_setters_map.has(p_indexed_setter)) {
 			return indexed_setters_map[p_indexed_setter];
 		}
@@ -290,7 +302,7 @@ class RuztaByteCodeGenerator : public RuztaCodeGenerator {
 		return pos;
 	}
 
-	int get_indexed_getter_pos(const RuztaHelper::ValidatedIndexedGetter p_indexed_getter) {
+	int get_indexed_getter_pos(const RuztaVariantExtension::ValidatedIndexedGetter p_indexed_getter) {
 		if (indexed_getters_map.has(p_indexed_getter)) {
 			return indexed_getters_map[p_indexed_getter];
 		}
@@ -299,7 +311,7 @@ class RuztaByteCodeGenerator : public RuztaCodeGenerator {
 		return pos;
 	}
 
-	int get_builtin_method_pos(const RuztaHelper::ValidatedBuiltInMethod p_method) {
+	int get_builtin_method_pos(const RuztaVariantExtension::ValidatedBuiltInMethod p_method) {
 		if (builtin_method_map.has(p_method)) {
 			return builtin_method_map[p_method];
 		}
@@ -308,7 +320,7 @@ class RuztaByteCodeGenerator : public RuztaCodeGenerator {
 		return pos;
 	}
 
-	int get_constructor_pos(const RuztaHelper::ValidatedConstructor p_constructor) {
+	int get_constructor_pos(const RuztaVariantExtension::ValidatedConstructor p_constructor) {
 		if (constructors_map.has(p_constructor)) {
 			return constructors_map[p_constructor];
 		}
@@ -317,7 +329,7 @@ class RuztaByteCodeGenerator : public RuztaCodeGenerator {
 		return pos;
 	}
 
-	int get_utility_pos(const RuztaHelper::ValidatedUtilityFunction p_utility) {
+	int get_utility_pos(const RuztaVariantExtension::ValidatedUtilityFunction p_utility) {
 		if (utilities_map.has(p_utility)) {
 			return utilities_map[p_utility];
 		}
@@ -399,43 +411,43 @@ class RuztaByteCodeGenerator : public RuztaCodeGenerator {
 		opcodes.push_back(get_name_map_pos(p_name));
 	}
 
-	void append(const RuztaHelper::ValidatedOperatorEvaluator p_operation) {
+	void append(const RuztaVariantExtension::ValidatedOperatorEvaluator p_operation) {
 		opcodes.push_back(get_operation_pos(p_operation));
 	}
 
-	void append(const RuztaHelper::ValidatedSetter p_setter) {
+	void append(const RuztaVariantExtension::ValidatedSetter p_setter) {
 		opcodes.push_back(get_setter_pos(p_setter));
 	}
 
-	void append(const RuztaHelper::ValidatedGetter p_getter) {
+	void append(const RuztaVariantExtension::ValidatedGetter p_getter) {
 		opcodes.push_back(get_getter_pos(p_getter));
 	}
 
-	void append(const RuztaHelper::ValidatedKeyedSetter p_keyed_setter) {
+	void append(const RuztaVariantExtension::ValidatedKeyedSetter p_keyed_setter) {
 		opcodes.push_back(get_keyed_setter_pos(p_keyed_setter));
 	}
 
-	void append(const RuztaHelper::ValidatedKeyedGetter p_keyed_getter) {
+	void append(const RuztaVariantExtension::ValidatedKeyedGetter p_keyed_getter) {
 		opcodes.push_back(get_keyed_getter_pos(p_keyed_getter));
 	}
 
-	void append(const RuztaHelper::ValidatedIndexedSetter p_indexed_setter) {
+	void append(const RuztaVariantExtension::ValidatedIndexedSetter p_indexed_setter) {
 		opcodes.push_back(get_indexed_setter_pos(p_indexed_setter));
 	}
 
-	void append(const RuztaHelper::ValidatedIndexedGetter p_indexed_getter) {
+	void append(const RuztaVariantExtension::ValidatedIndexedGetter p_indexed_getter) {
 		opcodes.push_back(get_indexed_getter_pos(p_indexed_getter));
 	}
 
-	void append(const RuztaHelper::ValidatedBuiltInMethod p_method) {
+	void append(const RuztaVariantExtension::ValidatedBuiltInMethod p_method) {
 		opcodes.push_back(get_builtin_method_pos(p_method));
 	}
 
-	void append(const RuztaHelper::ValidatedConstructor p_constructor) {
+	void append(const RuztaVariantExtension::ValidatedConstructor p_constructor) {
 		opcodes.push_back(get_constructor_pos(p_constructor));
 	}
 
-	void append(const RuztaHelper::ValidatedUtilityFunction p_utility) {
+	void append(const RuztaVariantExtension::ValidatedUtilityFunction p_utility) {
 		opcodes.push_back(get_utility_pos(p_utility));
 	}
 

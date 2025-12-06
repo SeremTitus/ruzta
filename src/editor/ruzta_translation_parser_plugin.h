@@ -2,10 +2,12 @@
 /*  ruzta_translation_parser_plugin.h                                  */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -35,14 +37,14 @@
 
 #include <godot_cpp/templates/hash_map.hpp> // original: core/templates/hash_map.h
 #include <godot_cpp/templates/hash_set.hpp> // original: core/templates/hash_set.h
-// TODO: #include "editor/translations/editor_translation_parser.h" // original: editor/translations/editor_translation_parser.h
+#include <godot_cpp/classes/editor_translation_parser_plugin.hpp> // original: editor/translations/editor_translation_parser.h
 
 class RuztaEditorTranslationParserPlugin : public EditorTranslationParserPlugin {
 	GDCLASS(RuztaEditorTranslationParserPlugin, EditorTranslationParserPlugin);
 
 	const HashMap<int, RuztaTokenizer::CommentData> *comment_data = nullptr;
 
-	Vector<Vector<String>> *translations = nullptr;
+	godot::TypedArray<PackedStringArray> *translations = nullptr;
 
 	// List of patterns used for extracting translation strings.
 	StringName tr_func = "tr";
@@ -76,8 +78,8 @@ class RuztaEditorTranslationParserPlugin : public EditorTranslationParserPlugin 
 	void _extract_fd_filter_array(const RuztaParser::ExpressionNode *p_expression);
 
 public:
-	virtual Error parse_file(const String &p_path, Vector<Vector<String>> *r_translations) override;
-	virtual void get_recognized_extensions(List<String> *r_extensions) const override;
+	virtual godot::TypedArray<PackedStringArray> _parse_file(const String &p_path) override;
+	virtual PackedStringArray _get_recognized_extensions() const override;
 
 	RuztaEditorTranslationParserPlugin();
 };

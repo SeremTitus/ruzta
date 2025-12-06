@@ -2,10 +2,12 @@
 /*  ruzta_test_runner.h                                                */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -32,7 +34,7 @@
 
 #include "../ruzta.h"
 
-// TODO: #include "core/error/error_macros.h" // original: core/error/error_macros.h
+#include <godot_cpp/core/error_macros.hpp> // original: core/error/error_macros.h
 // TODO: #include "core/string/print_string.h" // original: core/string/print_string.h
 #include <godot_cpp/variant/string.hpp> // original: core/string/ustring.h
 #include <godot_cpp/templates/vector.hpp> // original: core/templates/vector.h

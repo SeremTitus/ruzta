@@ -2,10 +2,12 @@
 /*  ruzta_vm.cpp                                                       */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md).       */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -33,6 +35,8 @@
 #include "ruzta_lambda_callable.h"
 
 #include <godot_cpp/classes/os.hpp> // original: core/os/os.h
+#include <godot_cpp/variant/variant_internal.hpp> // original:
+#include <godot_cpp/core/mutex_lock.hpp> // original:
 
 #ifdef DEBUG_ENABLED
 
@@ -41,17 +45,17 @@ static bool _profile_count_as_native(const Object *p_base_obj, const StringName 
 		return false;
 	}
 	StringName cname = p_base_obj->get_class();
-	if ((p_methodname == "new" && cname == "Ruzta") || p_methodname == "call") {
+	if ((p_methodname == StringName("new") && cname == StringName("Ruzta")) || p_methodname == StringName("call")) {
 		return false;
 	}
-	return ClassDB::class_exists(cname) && ClassDB::has_method(cname, p_methodname, false);
+	return ClassDB::class_exists(cname) && ClassDB::class_has_method(cname, p_methodname, false);
 }
 
 static String _get_element_type(Variant::Type builtin_type, const StringName &native_type, const Ref<Script> &script_type) {
 	if (script_type.is_valid() && script_type->is_valid()) {
 		return Ruzta::debug_get_script_name(script_type);
 	} else if (native_type != StringName()) {
-		return native_type.operator String();
+		return String(native_type);
 	} else {
 		return Variant::get_type_name(builtin_type);
 	}
@@ -73,8 +77,8 @@ static String _get_var_type(const Variant *p_var) {
 				basestr = Object::cast_to<RuztaNativeClass>(bobj)->get_name();
 			} else {
 				basestr = bobj->get_class();
-				if (bobj->get_script_instance()) {
-					basestr += " (" + Ruzta::debug_get_script_name(bobj->get_script_instance()->get_script()) + ")";
+				if (((Ref<Script>)bobj->get_script()).is_valid()) {
+					basestr += " (" + Ruzta::debug_get_script_name(bobj->get_script()) + ")";
 				}
 			}
 		}
@@ -138,7 +142,7 @@ Variant RuztaFunction::_get_default_variant_for_data_type(const RuztaDataType &p
 		} else {
 			GDExtensionCallError ce;
 			Variant variant;
-			Variant::construct(p_data_type.builtin_type, variant, nullptr, 0, ce);
+			RuztaVariantExtension::construct(p_data_type.builtin_type, variant, nullptr, 0, ce);
 
 			ERR_FAIL_COND_V(ce.error != GDExtensionCallErrorType::GDEXTENSION_CALL_OK, Variant());
 
@@ -186,8 +190,7 @@ String RuztaFunction::_get_call_error(const String &p_where, const Variant **p_a
 }
 
 String RuztaFunction::_get_callable_call_error(const String &p_where, const Callable &p_callable, const Variant **p_argptrs, int p_argcount, const Variant &p_ret, const GDExtensionCallError &p_err) const {
-	Vector<Variant> binds;
-	p_callable.get_bound_arguments_ref(binds);
+	Array binds = p_callable.get_bound_arguments();
 
 	int args_unbound = p_callable.get_unbound_arguments_count();
 
@@ -208,44 +211,44 @@ String RuztaFunction::_get_callable_call_error(const String &p_where, const Call
 
 void (*type_init_function_table[])(Variant *) = {
 	nullptr, // NIL (shouldn't be called).
-	&VariantInitializer<bool>::init, // BOOL.
-	&VariantInitializer<int64_t>::init, // INT.
-	&VariantInitializer<double>::init, // FLOAT.
-	&VariantInitializer<String>::init, // STRING.
-	&VariantInitializer<Vector2>::init, // VECTOR2.
-	&VariantInitializer<Vector2i>::init, // VECTOR2I.
-	&VariantInitializer<Rect2>::init, // RECT2.
-	&VariantInitializer<Rect2i>::init, // RECT2I.
-	&VariantInitializer<Vector3>::init, // VECTOR3.
-	&VariantInitializer<Vector3i>::init, // VECTOR3I.
-	&VariantInitializer<Transform2D>::init, // TRANSFORM2D.
-	&VariantInitializer<Vector4>::init, // VECTOR4.
-	&VariantInitializer<Vector4i>::init, // VECTOR4I.
-	&VariantInitializer<Plane>::init, // PLANE.
-	&VariantInitializer<Quaternion>::init, // QUATERNION.
-	&VariantInitializer<AABB>::init, // AABB.
-	&VariantInitializer<Basis>::init, // BASIS.
-	&VariantInitializer<Transform3D>::init, // TRANSFORM3D.
-	&VariantInitializer<Projection>::init, // PROJECTION.
-	&VariantInitializer<Color>::init, // COLOR.
-	&VariantInitializer<StringName>::init, // STRING_NAME.
-	&VariantInitializer<NodePath>::init, // NODE_PATH.
-	&VariantInitializer<RID>::init, // RID.
-	&VariantInitializer<Object *>::init, // OBJECT.
-	&VariantInitializer<Callable>::init, // CALLABLE.
-	&VariantInitializer<Signal>::init, // SIGNAL.
-	&VariantInitializer<Dictionary>::init, // DICTIONARY.
-	&VariantInitializer<Array>::init, // ARRAY.
-	&VariantInitializer<PackedByteArray>::init, // PACKED_BYTE_ARRAY.
-	&VariantInitializer<PackedInt32Array>::init, // PACKED_INT32_ARRAY.
-	&VariantInitializer<PackedInt64Array>::init, // PACKED_INT64_ARRAY.
-	&VariantInitializer<PackedFloat32Array>::init, // PACKED_FLOAT32_ARRAY.
-	&VariantInitializer<PackedFloat64Array>::init, // PACKED_FLOAT64_ARRAY.
-	&VariantInitializer<PackedStringArray>::init, // PACKED_STRING_ARRAY.
-	&VariantInitializer<PackedVector2Array>::init, // PACKED_VECTOR2_ARRAY.
-	&VariantInitializer<PackedVector3Array>::init, // PACKED_VECTOR3_ARRAY.
-	&VariantInitializer<PackedColorArray>::init, // PACKED_COLOR_ARRAY.
-	&VariantInitializer<PackedVector4Array>::init, // PACKED_VECTOR4_ARRAY.
+	&VariantDefaultInitializer<bool, Variant::BOOL>::init, // BOOL.
+	&VariantDefaultInitializer<int64_t, Variant::INT>::init, // INT.
+	&VariantDefaultInitializer<double, Variant::FLOAT>::init, // FLOAT.
+	&VariantDefaultInitializer<String, Variant::STRING>::init, // STRING.
+	&VariantDefaultInitializer<Vector2, Variant::VECTOR2>::init, // VECTOR2.
+	&VariantDefaultInitializer<Vector2i, Variant::VECTOR2I>::init, // VECTOR2I.
+	&VariantDefaultInitializer<Rect2, Variant::RECT2>::init, // RECT2.
+	&VariantDefaultInitializer<Rect2i, Variant::RECT2I>::init, // RECT2I.
+	&VariantDefaultInitializer<Vector3, Variant::VECTOR3>::init, // VECTOR3.
+	&VariantDefaultInitializer<Vector3i, Variant::VECTOR3I>::init, // VECTOR3I.
+	&VariantDefaultInitializer<Transform2D, Variant::TRANSFORM2D>::init, // TRANSFORM2D.
+	&VariantDefaultInitializer<Vector4, Variant::VECTOR4>::init, // VECTOR4.
+	&VariantDefaultInitializer<Vector4i, Variant::VECTOR4I>::init, // VECTOR4I.
+	&VariantDefaultInitializer<Plane, Variant::PLANE>::init, // PLANE.
+	&VariantDefaultInitializer<Quaternion, Variant::QUATERNION>::init, // QUATERNION.
+	&VariantDefaultInitializer<AABB, Variant::AABB>::init, // AABB.
+	&VariantDefaultInitializer<Basis, Variant::BASIS>::init, // BASIS.
+	&VariantDefaultInitializer<Transform3D, Variant::TRANSFORM3D>::init, // TRANSFORM3D.
+	&VariantDefaultInitializer<Projection, Variant::PROJECTION>::init, // PROJECTION.
+	&VariantDefaultInitializer<Color, Variant::COLOR>::init, // COLOR.
+	&VariantDefaultInitializer<StringName, Variant::STRING_NAME>::init, // STRING_NAME.
+	&VariantDefaultInitializer<NodePath, Variant::NODE_PATH>::init, // NODE_PATH.
+	&VariantDefaultInitializer<RID, Variant::RID>::init, // RID.
+	&VariantDefaultInitializer<Object *, Variant::OBJECT>::init, // OBJECT.
+	&VariantDefaultInitializer<Callable, Variant::CALLABLE>::init, // CALLABLE.
+	&VariantDefaultInitializer<Signal, Variant::SIGNAL>::init, // SIGNAL.
+	&VariantDefaultInitializer<Dictionary, Variant::DICTIONARY>::init, // DICTIONARY.
+	&VariantDefaultInitializer<Array, Variant::ARRAY>::init, // ARRAY.
+	&VariantDefaultInitializer<PackedByteArray, Variant::PACKED_BYTE_ARRAY>::init, // PACKED_BYTE_ARRAY.
+	&VariantDefaultInitializer<PackedInt32Array, Variant::PACKED_INT32_ARRAY>::init, // PACKED_INT32_ARRAY.
+	&VariantDefaultInitializer<PackedInt64Array, Variant::PACKED_INT64_ARRAY>::init, // PACKED_INT64_ARRAY.
+	&VariantDefaultInitializer<PackedFloat32Array, Variant::PACKED_FLOAT32_ARRAY>::init, // PACKED_FLOAT32_ARRAY.
+	&VariantDefaultInitializer<PackedFloat64Array, Variant::PACKED_FLOAT64_ARRAY>::init, // PACKED_FLOAT64_ARRAY.
+	&VariantDefaultInitializer<PackedStringArray, Variant::PACKED_STRING_ARRAY>::init, // PACKED_STRING_ARRAY.
+	&VariantDefaultInitializer<PackedVector2Array, Variant::PACKED_VECTOR2_ARRAY>::init, // PACKED_VECTOR2_ARRAY.
+	&VariantDefaultInitializer<PackedVector3Array, Variant::PACKED_VECTOR3_ARRAY>::init, // PACKED_VECTOR3_ARRAY.
+	&VariantDefaultInitializer<PackedColorArray, Variant::PACKED_COLOR_ARRAY>::init, // PACKED_COLOR_ARRAY.
+	&VariantDefaultInitializer<PackedVector4Array, Variant::PACKED_VECTOR4_ARRAY>::init, // PACKED_VECTOR4_ARRAY.
 };
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -517,11 +520,11 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 		}
 		String err_func = name;
 		if (p_instance && ObjectDB::get_instance(p_instance->owner_id) != nullptr && p_instance->script->is_valid() && p_instance->script->local_name != StringName()) {
-			err_func = p_instance->script->local_name.operator String() + "." + err_func;
+			err_func = String(p_instance->script->local_name) + "." + err_func;
 		}
 		int err_line = _initial_line;
 		const char *err_text = "Stack overflow. Check for infinite recursion in your script.";
-		_err_print_error(err_func.utf8().get_data(), err_file.utf8().get_data(), err_line, err_text, false, ERR_HANDLER_SCRIPT);
+		_err_print_error(err_func.utf8().get_data(), err_file.utf8().get_data(), err_line, err_text, false, true);
 		RuztaLanguage::get_singleton()->debug_break(err_text, false);
 #endif
 		return _get_default_variant_for_data_type(return_type);
@@ -578,7 +581,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 				memnew_placement(&stack[i + FIXED_ADDRESSES_MAX], Variant(*p_args[i]));
 				continue;
 			}
-			// If types already match, don't call Variant::construct(). Constructors of some types
+			// If types already match, don't call RuztaVariantExtension::construct(). Constructors of some types
 			// (e.g. packed arrays) do copies, whereas they pass by reference when inside a Variant.
 			if (argument_types[i].is_type(*p_args[i], false)) {
 				memnew_placement(&stack[i + FIXED_ADDRESSES_MAX], Variant(*p_args[i]));
@@ -603,7 +606,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 					memnew_placement(&stack[i + FIXED_ADDRESSES_MAX], Variant(array));
 				} else {
 					Variant variant;
-					Variant::construct(argument_types[i].builtin_type, variant, &p_args[i], 1, r_err);
+					RuztaVariantExtension::construct(argument_types[i].builtin_type, variant, &p_args[i], 1, r_err);
 					if (unlikely(r_err.error)) {
 						r_err.error = GDExtensionCallErrorType::GDEXTENSION_CALL_ERROR_INVALID_ARGUMENT;
 						r_err.argument = i;
@@ -745,7 +748,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 
 		OPCODE_SWITCH(_code_ptr[ip]) {
 			OPCODE(OPCODE_OPERATOR) {
-				constexpr int _pointer_size = sizeof(RuztaHelper::ValidatedOperatorEvaluator) / sizeof(*_code_ptr);
+				constexpr int _pointer_size = sizeof(RuztaVariantExtension::ValidatedOperatorEvaluator) / sizeof(*_code_ptr);
 				CHECK_SPACE(7 + _pointer_size);
 
 				bool valid;
@@ -774,16 +777,16 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 					Variant::Type a_type = (Variant::Type)((actual_signature >> 8) & 0xFF);
 					Variant::Type b_type = (Variant::Type)(actual_signature & 0xFF);
 
-					RuztaHelper::ValidatedOperatorEvaluator op_func = Variant::get_validated_operator_evaluator(op, a_type, b_type);
+					RuztaVariantExtension::ValidatedOperatorEvaluator op_func = RuztaVariantExtension::get_validated_operator_evaluator(op, a_type, b_type);
 
 					if (unlikely(!op_func)) {
 #ifdef DEBUG_ENABLED
-						err_text = "Invalid operands '" + Variant::get_type_name(a->get_type()) + "' and '" + Variant::get_type_name(b->get_type()) + "' in operator '" + Variant::get_operator_name(op) + "'.";
+						err_text = "Invalid operands '" + Variant::get_type_name(a->get_type()) + "' and '" + Variant::get_type_name(b->get_type()) + "' in operator '" + RuztaVariantExtension::get_operator_name(op) + "'.";
 #endif
 						initializer_mutex.unlock();
 						OPCODE_BREAK;
 					} else {
-						Variant::Type ret_type = Variant::get_operator_return_type(op, a_type, b_type);
+						Variant::Type ret_type = RuztaVariantExtension::get_operator_return_type(op, a_type, b_type);
 						VariantInternal::initialize(dst, ret_type);
 						op_func(a, b, dst);
 
@@ -791,7 +794,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 						if (_code_ptr[ip + 5] == 0) {
 							_code_ptr[ip + 5] = actual_signature;
 							_code_ptr[ip + 6] = static_cast<int>(ret_type);
-							RuztaHelper::ValidatedOperatorEvaluator *tmp = reinterpret_cast<RuztaHelper::ValidatedOperatorEvaluator *>(&_code_ptr[ip + 7]);
+							RuztaVariantExtension::ValidatedOperatorEvaluator *tmp = reinterpret_cast<RuztaVariantExtension::ValidatedOperatorEvaluator *>(&_code_ptr[ip + 7]);
 							*tmp = op_func;
 						}
 					}
@@ -799,7 +802,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 				} else if (likely(op_signature == actual_signature)) {
 					// If the signature matches, we can use the optimized path.
 					Variant::Type ret_type = static_cast<Variant::Type>(_code_ptr[ip + 6]);
-					RuztaHelper::ValidatedOperatorEvaluator op_func = *reinterpret_cast<RuztaHelper::ValidatedOperatorEvaluator *>(&_code_ptr[ip + 7]);
+					RuztaVariantExtension::ValidatedOperatorEvaluator op_func = *reinterpret_cast<RuztaVariantExtension::ValidatedOperatorEvaluator *>(&_code_ptr[ip + 7]);
 
 					// Make sure the return value has the correct type.
 					VariantInternal::initialize(dst, ret_type);
@@ -809,18 +812,18 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 #ifdef DEBUG_ENABLED
 
 					Variant ret;
-					Variant::evaluate(op, *a, *b, ret, valid);
+					RuztaVariantExtension::evaluate(op, *a, *b, ret, valid);
 #else
-					Variant::evaluate(op, *a, *b, *dst, valid);
+					RuztaVariantExtension::evaluate(op, *a, *b, *dst, valid);
 #endif
 #ifdef DEBUG_ENABLED
 					if (!valid) {
 						if (ret.get_type() == Variant::STRING) {
 							//return a string when invalid with the error
 							err_text = ret;
-							err_text += " in operator '" + Variant::get_operator_name(op) + "'.";
+							err_text += " in operator '" + RuztaVariantExtension::get_operator_name(op) + "'.";
 						} else {
-							err_text = "Invalid operands '" + Variant::get_type_name(a->get_type()) + "' and '" + Variant::get_type_name(b->get_type()) + "' in operator '" + Variant::get_operator_name(op) + "'.";
+							err_text = "Invalid operands '" + Variant::get_type_name(a->get_type()) + "' and '" + Variant::get_type_name(b->get_type()) + "' in operator '" + RuztaVariantExtension::get_operator_name(op) + "'.";
 						}
 						OPCODE_BREAK;
 					}
@@ -836,7 +839,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 
 				int operator_idx = _code_ptr[ip + 4];
 				GD_ERR_BREAK(operator_idx < 0 || operator_idx >= _operator_funcs_count);
-				RuztaHelper::ValidatedOperatorEvaluator operator_func = _operator_funcs_ptr[operator_idx];
+				RuztaVariantExtension::ValidatedOperatorEvaluator operator_func = _operator_funcs_ptr[operator_idx];
 
 				GET_VARIANT_PTR(a, 0);
 				GET_VARIANT_PTR(b, 1);
@@ -953,8 +956,9 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 				}
 
 				bool result = false;
-				if (object && object->get_script_instance()) {
-					Script *script_ptr = object->get_script_instance()->get_script().ptr();
+				
+				if (object && godot::internal::gdextension_interface_object_get_script_instance(object, RuztaLanguage::get_singleton())) {
+					Script *script_ptr = ((Ref<Script>)object->get_script()).ptr();
 					while (script_ptr) {
 						if (script_ptr == script_type) {
 							result = true;
@@ -992,7 +996,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 						String v = index->operator String();
 						bool read_only_property = false;
 						if (obj) {
-							read_only_property = ClassDB::has_property(obj->get_class(), v) && (ClassDB::get_property_setter(obj->get_class(), v) == StringName());
+							read_only_property = ClassDB::class_get_property_setter(obj->get_class(), v) == StringName();
 						}
 						if (read_only_property) {
 							err_text = vformat(R"(Cannot set value into property "%s" (on base "%s") because it is read-only.)", v, _get_var_type(dst));
@@ -1024,7 +1028,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 
 				int index_setter = _code_ptr[ip + 4];
 				GD_ERR_BREAK(index_setter < 0 || index_setter >= _keyed_setters_count);
-				const RuztaHelper::ValidatedKeyedSetter setter = _keyed_setters_ptr[index_setter];
+				const RuztaVariantExtension::ValidatedKeyedSetter setter = _keyed_setters_ptr[index_setter];
 
 				bool valid;
 				setter(dst, index, value, &valid);
@@ -1058,7 +1062,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 
 				int index_setter = _code_ptr[ip + 4];
 				GD_ERR_BREAK(index_setter < 0 || index_setter >= _indexed_setters_count);
-				const RuztaHelper::ValidatedIndexedSetter setter = _indexed_setters_ptr[index_setter];
+				const RuztaVariantExtension::ValidatedIndexedSetter setter = _indexed_setters_ptr[index_setter];
 
 				int64_t int_index = *VariantInternal::get_int(index);
 
@@ -1130,7 +1134,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 
 				int index_getter = _code_ptr[ip + 4];
 				GD_ERR_BREAK(index_getter < 0 || index_getter >= _keyed_getters_count);
-				const RuztaHelper::ValidatedKeyedGetter getter = _keyed_getters_ptr[index_getter];
+				const RuztaVariantExtension::ValidatedKeyedGetter getter = _keyed_getters_ptr[index_getter];
 
 				bool valid;
 #ifdef DEBUG_ENABLED
@@ -1166,7 +1170,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 
 				int index_getter = _code_ptr[ip + 4];
 				GD_ERR_BREAK(index_getter < 0 || index_getter >= _indexed_getters_count);
-				const RuztaHelper::ValidatedIndexedGetter getter = _indexed_getters_ptr[index_getter];
+				const RuztaVariantExtension::ValidatedIndexedGetter getter = _indexed_getters_ptr[index_getter];
 
 				int64_t int_index = *VariantInternal::get_int(index);
 
@@ -1211,7 +1215,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 						Object *obj = dst->get_validated_object();
 						bool read_only_property = false;
 						if (obj) {
-							read_only_property = ClassDB::has_property(obj->get_class(), *index) && (ClassDB::get_property_setter(obj->get_class(), *index) == StringName());
+							read_only_property = ClassDB::class_get_property_setter(obj->get_class(), *index) == StringName();
 						}
 						if (read_only_property) {
 							err_text = vformat(R"(Cannot set value into property "%s" (on base "%s") because it is read-only.)", String(*index), _get_var_type(dst));
@@ -1234,7 +1238,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 
 				int index_setter = _code_ptr[ip + 3];
 				GD_ERR_BREAK(index_setter < 0 || index_setter >= _setters_count);
-				const RuztaHelper::ValidatedSetter setter = _setters_ptr[index_setter];
+				const RuztaVariantExtension::ValidatedSetter setter = _setters_ptr[index_setter];
 
 				setter(dst, value);
 				ip += 4;
@@ -1262,7 +1266,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 #endif
 #ifdef DEBUG_ENABLED
 				if (!valid) {
-					err_text = "Invalid access to property or key '" + index->operator String() + "' on a base object of type '" + _get_var_type(src) + "'.";
+					err_text = "Invalid access to property or key '" + String(*index) + "' on a base object of type '" + _get_var_type(src) + "'.";
 					OPCODE_BREAK;
 				}
 				*dst = ret;
@@ -1279,7 +1283,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 
 				int index_getter = _code_ptr[ip + 3];
 				GD_ERR_BREAK(index_getter < 0 || index_getter >= _getters_count);
-				const RuztaHelper::ValidatedGetter getter = _getters_ptr[index_getter];
+				const RuztaVariantExtension::ValidatedGetter getter = _getters_ptr[index_getter];
 
 				getter(src, dst);
 				ip += 4;
@@ -1295,9 +1299,9 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 
 				bool valid;
 #ifndef DEBUG_ENABLED
-				ClassDB::set_property(p_instance->owner, *index, *src, &valid);
+				ClassDB::class_set_property(p_instance->owner, *index, *src, &valid);
 #else
-				bool ok = ClassDB::set_property(p_instance->owner, *index, *src, &valid);
+				bool ok = ClassDB::class_set_property(p_instance->owner, *index, *src, &valid);
 				if (!ok) {
 					err_text = "Internal error setting property: " + String(*index);
 					OPCODE_BREAK;
@@ -1419,7 +1423,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 					if (Variant::can_convert_strict(src->get_type(), var_type)) {
 #endif // DEBUG_ENABLED
 						GDExtensionCallError ce;
-						Variant::construct(var_type, *dst, const_cast<const Variant **>(&src), 1, ce);
+						RuztaVariantExtension::construct(var_type, *dst, const_cast<const Variant **>(&src), 1, ce);
 					} else {
 #ifdef DEBUG_ENABLED
 						err_text = "Trying to assign value of type '" + Variant::get_type_name(src->get_type()) +
@@ -1573,7 +1577,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 					}
 
 					if (val_obj) { // src is not null
-						ScriptInstance *scr_inst = val_obj->get_script_instance();
+						ScriptInstance *scr_inst = static_cast<ScriptInstance *>(godot::internal::gdextension_interface_object_get_script_instance(val_obj, RuztaLanguage::get_singleton()));
 						if (!scr_inst) {
 							err_text = "Trying to assign value of type '" + val_obj->get_class() +
 									"' to a variable of type '" + base_type->get_path().get_file() + "'.";
@@ -1592,7 +1596,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 						}
 
 						if (!valid) {
-							err_text = "Trying to assign value of type '" + val_obj->get_script_instance()->get_script()->get_path().get_file() +
+							err_text = "Trying to assign value of type '" + val_obj->get_script()->get_path().get_file() +
 									"' to a variable of type '" + base_type->get_path().get_file() + "'.";
 							OPCODE_BREAK;
 						}
@@ -1622,7 +1626,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 #endif
 
 				GDExtensionCallError err;
-				Variant::construct(to_type, *dst, (const Variant **)&src, 1, err);
+				RuztaVariantExtension::construct(to_type, *dst, (const Variant **)&src, 1, err);
 
 #ifdef DEBUG_ENABLED
 				if (err.error != GDExtensionCallErrorType::GDEXTENSION_CALL_OK) {
@@ -1690,10 +1694,10 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 				bool valid = false;
 
 				if (src->get_type() != Variant::NIL && src->operator Object *() != nullptr) {
-					ScriptInstance *scr_inst = src->operator Object *()->get_script_instance();
+					ScriptInstance *scr_inst = static_cast<ScriptInstance *>(godot::internal::gdextension_interface_object_get_script_instance(src->operator Object *(), RuztaLanguage::get_singleton()));
 
 					if (scr_inst) {
-						Script *src_type = src->operator Object *()->get_script_instance()->get_script().ptr();
+						Script *src_type = src->operator Object *()->get_script().ptr();
 
 						while (src_type) {
 							if (src_type == base_type) {
@@ -1730,7 +1734,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 				GET_INSTRUCTION_ARG(dst, argc);
 
 				GDExtensionCallError err;
-				Variant::construct(t, *dst, (const Variant **)argptrs, argc, err);
+				RuztaVariantExtension::construct(t, *dst, (const Variant **)argptrs, argc, err);
 
 #ifdef DEBUG_ENABLED
 				if (err.error != GDExtensionCallErrorType::GDEXTENSION_CALL_OK) {
@@ -1752,7 +1756,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 
 				int constructor_idx = _code_ptr[ip + 2];
 				GD_ERR_BREAK(constructor_idx < 0 || constructor_idx >= _constructors_count);
-				RuztaHelper::ValidatedConstructor constructor = _constructors_ptr[constructor_idx];
+				RuztaVariantExtension::ValidatedConstructor constructor = _constructors_ptr[constructor_idx];
 
 				Variant **argptrs = instruction_args;
 
@@ -1924,12 +1928,12 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 						if (base_type == Variant::OBJECT) {
 							if (base_obj) {
 								MethodBind *method = ClassDB::get_method(base_class, *methodname);
-								if (*methodname == CoreStringName(free_) || (method && !method->has_return())) {
+								if (*methodname == StringName("free_") || (method && !method->has_return())) {
 									err_text = R"(Trying to get a return value of a method that returns "void")";
 									OPCODE_BREAK;
 								}
 							}
-						} else if (Variant::has_builtin_method(base_type, *methodname) && !Variant::has_builtin_method_return_value(base_type, *methodname)) {
+						} else if (RuztaVariantExtension::has_builtin_method(base_type, *methodname) && !RuztaVariantExtension::has_builtin_method_return_value(base_type, *methodname)) {
 							err_text = R"(Trying to get a return value of a method that returns "void")";
 							OPCODE_BREAK;
 						}
@@ -2114,7 +2118,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 
 #ifdef DEBUG_ENABLED
 				if (err.error != GDExtensionCallErrorType::GDEXTENSION_CALL_OK) {
-					err_text = _get_call_error("static function '" + methodname->operator String() + "' in type '" + Variant::get_type_name(builtin_type) + "'", argptrs, argc, *ret, err);
+					err_text = _get_call_error("static function '" + String(*methodname/) + "' in type '" + Variant::get_type_name(builtin_type) + "'", argptrs, argc, *ret, err);
 					OPCODE_BREAK;
 				}
 #endif
@@ -2351,7 +2355,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 				GET_INSTRUCTION_ARG(base, argc);
 
 				GD_ERR_BREAK(_code_ptr[ip + 2] < 0 || _code_ptr[ip + 2] >= _builtin_methods_count);
-				RuztaHelper::ValidatedBuiltInMethod method = _builtin_methods_ptr[_code_ptr[ip + 2]];
+				RuztaVariantExtension::ValidatedBuiltInMethod method = _builtin_methods_ptr[_code_ptr[ip + 2]];
 				Variant **argptrs = instruction_args;
 
 				GET_INSTRUCTION_ARG(ret, argc + 1);
@@ -2378,7 +2382,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 				GET_INSTRUCTION_ARG(dst, argc);
 
 				GDExtensionCallError err;
-				Variant::call_utility_function(function, dst, (const Variant **)argptrs, argc, err);
+				RuztaVariantExtension::call_utility_function(function, dst, (const Variant **)argptrs, argc, err);
 
 #ifdef DEBUG_ENABLED
 				if (err.error != GDExtensionCallErrorType::GDEXTENSION_CALL_OK) {
@@ -2406,7 +2410,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 				GD_ERR_BREAK(argc < 0);
 
 				GD_ERR_BREAK(_code_ptr[ip + 2] < 0 || _code_ptr[ip + 2] >= _utilities_count);
-				RuztaHelper::ValidatedUtilityFunction function = _utilities_ptr[_code_ptr[ip + 2]];
+				RuztaVariantExtension::ValidatedUtilityFunction function = _utilities_ptr[_code_ptr[ip + 2]];
 
 				Variant **argptrs = instruction_args;
 
@@ -2778,7 +2782,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 				if (r->get_type() != ret_type) {
 					if (Variant::can_convert_strict(r->get_type(), ret_type)) {
 						GDExtensionCallError ce;
-						Variant::construct(ret_type, retvalue, const_cast<const Variant **>(&r), 1, ce);
+						RuztaVariantExtension::construct(ret_type, retvalue, const_cast<const Variant **>(&r), 1, ce);
 					} else {
 #ifdef DEBUG_ENABLED
 						err_text = vformat(R"(Trying to return value of type "%s" from a function whose return type is "%s".)",
@@ -2787,7 +2791,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 
 						// Construct a base type anyway so type constraints are met.
 						GDExtensionCallError ce;
-						Variant::construct(ret_type, retvalue, nullptr, 0, ce);
+						RuztaVariantExtension::construct(ret_type, retvalue, nullptr, 0, ce);
 						OPCODE_BREAK;
 					}
 				} else {
@@ -2947,7 +2951,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 #endif // DEBUG_ENABLED
 
 				if (ret_obj) {
-					ScriptInstance *ret_inst = ret_obj->get_script_instance();
+					ScriptInstance *ret_inst = static_cast<ScriptInstance *>(godot::internal::gdextension_interface_object_get_script_instance(ret_obj, RuztaLanguage::get_singleton()));
 					if (!ret_inst) {
 #ifdef DEBUG_ENABLED
 						err_text = vformat(R"(Trying to return value of type "%s" from a function whose return type is "%s".)",
@@ -2956,7 +2960,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 						OPCODE_BREAK;
 					}
 
-					Script *ret_type = ret_obj->get_script_instance()->get_script().ptr();
+					Script *ret_type = ret_obj->get_script().ptr();
 					bool valid = false;
 
 					while (ret_type) {
@@ -2970,7 +2974,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 					if (!valid) {
 #ifdef DEBUG_ENABLED
 						err_text = vformat(R"(Trying to return value of type "%s" from a function whose return type is "%s".)",
-								Ruzta::debug_get_script_name(ret_obj->get_script_instance()->get_script()), Ruzta::debug_get_script_name(Ref<Ruzta>(base_type)));
+								Ruzta::debug_get_script_name(ret_obj->get_script()), Ruzta::debug_get_script_name(base_type));
 #endif // DEBUG_ENABLED
 						OPCODE_BREAK;
 					}
@@ -3328,7 +3332,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 				const Variant *args[] = { &vref };
 
 				GDExtensionCallError ce;
-				Variant has_next = obj->callp(CoreStringName(_iter_init), args, 1, ce);
+				Variant has_next = obj->callp(StringName("_iter_init"), args, 1, ce);
 
 #ifdef DEBUG_ENABLED
 				if (ref.size() != 1 || ce.error != GDExtensionCallErrorType::GDEXTENSION_CALL_OK) {
@@ -3344,7 +3348,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 					*counter = ref[0];
 
 					GET_VARIANT_PTR(iterator, 2);
-					*iterator = obj->callp(CoreStringName(_iter_get), (const Variant **)&counter, 1, ce);
+					*iterator = obj->callp(StringName("_iter_get"), (const Variant **)&counter, 1, ce);
 #ifdef DEBUG_ENABLED
 					if (ce.error != GDExtensionCallErrorType::GDEXTENSION_CALL_OK) {
 						err_text = vformat(R"(There was an error calling "_iter_get" on iterator object of type %s.)", *container);
@@ -3693,7 +3697,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 				const Variant *args[] = { &vref };
 
 				GDExtensionCallError ce;
-				Variant has_next = obj->callp(CoreStringName(_iter_next), args, 1, ce);
+				Variant has_next = obj->callp(StringName("_iter_next"), args, 1, ce);
 
 #ifdef DEBUG_ENABLED
 				if (ref.size() != 1 || ce.error != GDExtensionCallErrorType::GDEXTENSION_CALL_OK) {
@@ -3709,7 +3713,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 					*counter = ref[0];
 
 					GET_VARIANT_PTR(iterator, 2);
-					*iterator = obj->callp(CoreStringName(_iter_get), (const Variant **)&counter, 1, ce);
+					*iterator = obj->callp(StringName("_iter_get"), (const Variant **)&counter, 1, ce);
 #ifdef DEBUG_ENABLED
 					if (ce.error != GDExtensionCallErrorType::GDEXTENSION_CALL_OK) {
 						err_text = vformat(R"(There was an error calling "_iter_get" on iterator object of type %s.)", *container);
@@ -3854,7 +3858,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 
 			OPCODE(OPCODE_BREAKPOINT) {
 #ifdef DEBUG_ENABLED
-				if (EngineDebugger::is_active()) {
+				if (EngineDebugger::get_singleton()->is_active()) {
 					RuztaLanguage::get_singleton()->debug_break("Breakpoint Statement", true);
 				}
 #endif
@@ -3868,20 +3872,20 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 				line = _code_ptr[ip + 1];
 				ip += 2;
 
-				if (EngineDebugger::is_active()) {
+				if (EngineDebugger::get_singleton()->is_active()) {
 					// line
 					bool do_break = false;
 
-					if (unlikely(EngineDebugger::get_script_debugger()->get_lines_left() > 0)) {
-						if (EngineDebugger::get_script_debugger()->get_depth() <= 0) {
-							EngineDebugger::get_script_debugger()->set_lines_left(EngineDebugger::get_script_debugger()->get_lines_left() - 1);
+					if (unlikely(EngineDebugger::get_singleton()->get_lines_left() > 0)) {
+						if (EngineDebugger::get_singleton()->get_depth() <= 0) {
+							EngineDebugger::get_singleton()->set_lines_left(EngineDebugger::get_singleton()->get_lines_left() - 1);
 						}
-						if (EngineDebugger::get_script_debugger()->get_lines_left() <= 0) {
+						if (EngineDebugger::get_singleton()->get_lines_left() <= 0) {
 							do_break = true;
 						}
 					}
 
-					if (EngineDebugger::get_script_debugger()->is_breakpoint(line, source)) {
+					if (EngineDebugger::get_singleton()->is_breakpoint(line, source)) {
 						do_break = true;
 					}
 
@@ -3928,14 +3932,14 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 		}
 		String err_func = name;
 		if (instance_valid_with_script && p_instance->script->local_name != StringName()) {
-			err_func = p_instance->script->local_name.operator String() + "." + err_func;
+			err_func = String(p_instance->script->local_name) + "." + err_func;
 		}
 		int err_line = line;
 		if (err_text.is_empty()) {
 			err_text = "Internal script error! Opcode: " + itos(last_opcode) + " (please report).";
 		}
 
-		_err_print_error(err_func.utf8().get_data(), err_file.utf8().get_data(), err_line, err_text.utf8().get_data(), false, ERR_HANDLER_SCRIPT);
+		_err_print_error(err_func.utf8().get_data(), err_file.utf8().get_data(), err_line, err_text.utf8().get_data(), false, true);
 		RuztaLanguage::get_singleton()->debug_break(err_text, false);
 
 		// Get a default return type in case of failure
@@ -3953,7 +3957,7 @@ Variant RuztaFunction::call(RuztaInstance *p_instance, const Variant **p_args, i
 		profile.self_time.add(time_taken - function_call_time);
 		profile.frame_total_time.add(time_taken);
 		profile.frame_self_time.add(time_taken - function_call_time);
-		if (Thread::get_caller_id() == Thread::get_main_id()) {
+		if (OS::get_singleton()->get_thread_caller_id() == OS::get_singleton()->get_main_thread_id()) {
 			RuztaLanguage::get_singleton()->script_frame_time += time_taken - function_call_time;
 		}
 	}

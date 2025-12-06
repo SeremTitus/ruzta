@@ -2,10 +2,12 @@
 /*  test_completion.h                                                     */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -44,7 +46,7 @@
 #include <godot_cpp/classes/script_language.hpp> // original: core/object/script_language.h
 #include <godot_cpp/variant/dictionary.hpp> // original: core/variant/dictionary.h
 #include <godot_cpp/variant/variant.hpp> // original: core/variant/variant.h
-// TODO: #include "editor/settings/editor_settings.h" // original: editor/settings/editor_settings.h
+#include <godot_cpp/classes/editor_settings.hpp> // original: editor/settings/editor_settings.h
 #include <godot_cpp/classes/packed_scene.hpp> // original: scene/resources/packed_scene.h
 #include <godot_cpp/classes/theme_db.hpp> // original: scene/theme/theme_db.h
 
@@ -101,7 +103,8 @@ static void test_directory(const String &p_dir) {
 			}
 			test_directory(path.path_join(next));
 		} else if (next.ends_with(".rz") && !next.ends_with(".notest.rz")) {
-			Ref<FileAccess> acc = FileAccess::open(path.path_join(next), FileAccess::READ, &err);
+			Ref<FileAccess> acc = FileAccess::open(path.path_join(next), FileAccess::READ);
+			err = FileAccess::get_open_error(); 
 
 			if (err != OK) {
 				next = dir->get_next();
@@ -112,7 +115,7 @@ static void test_directory(const String &p_dir) {
 			// For ease of reading ➡ (0x27A1) acts as sentinel char instead of 0xFFFF in the files.
 			code = code.replace_first(String::chr(0x27A1), String::chr(0xFFFF));
 			// Require pointer sentinel char in scripts.
-			int location = code.find_char(0xFFFF);
+			int location = code.find(String::chr(0xFFFF));
 			CHECK(location != -1);
 
 			String res_path = ProjectSettings::get_singleton()->localize_path(path.path_join(next));
@@ -129,9 +132,9 @@ static void test_directory(const String &p_dir) {
 			}
 #endif
 
-			EditorSettings::get_singleton()->set_setting("text_editor/completion/use_single_quotes", conf.get_value("input", "use_single_quotes", false));
-			EditorSettings::get_singleton()->set_setting("text_editor/completion/add_node_path_literals", conf.get_value("input", "add_node_path_literals", false));
-			EditorSettings::get_singleton()->set_setting("text_editor/completion/add_string_name_literals", conf.get_value("input", "add_string_name_literals", false));
+			RuztaEditorPlugin::get_editor_settings()->set_setting("text_editor/completion/use_single_quotes", conf.get_value("input", "use_single_quotes", false));
+			RuztaEditorPlugin::get_editor_settings()->set_setting("text_editor/completion/add_node_path_literals", conf.get_value("input", "add_node_path_literals", false));
+			RuztaEditorPlugin::get_editor_settings()->set_setting("text_editor/completion/add_string_name_literals", conf.get_value("input", "add_string_name_literals", false));
 
 			List<Dictionary> include;
 			to_dict_list(conf.get_value("output", "include", Array()), include);
@@ -145,12 +148,12 @@ static void test_directory(const String &p_dir) {
 
 			Node *scene = nullptr;
 			if (conf.has_section_key("input", "scene")) {
-				Ref<PackedScene> packed_scene = ResourceLoader::load(conf.get_value("input", "scene"), "PackedScene", ResourceFormatLoader::CACHE_MODE_IGNORE_DEEP);
+				Ref<PackedScene> packed_scene = ResourceLoader::get_singleton()->load(conf.get_value("input", "scene"), "PackedScene", ResourceFormatLoader::CACHE_MODE_IGNORE_DEEP);
 				if (packed_scene.is_valid()) {
 					scene = packed_scene->instantiate();
 				}
 			} else if (dir->file_exists(next.get_basename() + ".tscn")) {
-				Ref<PackedScene> packed_scene = ResourceLoader::load(path.path_join(next.get_basename() + ".tscn"), "PackedScene");
+				Ref<PackedScene> packed_scene = ResourceLoader::get_singleton()->load(path.path_join(next.get_basename() + ".tscn"), "PackedScene");
 				if (packed_scene.is_valid()) {
 					scene = packed_scene->instantiate();
 				}
@@ -262,7 +265,7 @@ static void setup_global_classes(const String &p_dir) {
 TEST_SUITE("[Modules][Ruzta][Completion]") {
 	TEST_CASE("[Editor] Check suggestion list") {
 		// Set all editor settings that code completion relies on.
-		EditorSettings::get_singleton()->set_setting("text_editor/completion/use_single_quotes", false);
+		RuztaEditorPlugin::get_editor_settings()->set_setting("text_editor/completion/use_single_quotes", false);
 		init_language("modules/ruzta/tests/scripts");
 
 		setup_global_classes("modules/ruzta/tests/scripts/completion");

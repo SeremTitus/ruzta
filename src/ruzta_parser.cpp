@@ -2,10 +2,12 @@
 /*  ruzta_parser.cpp                                                   */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -33,6 +35,13 @@
 #include "ruzta.h"
 #include "ruzta_tokenizer_buffer.h"
 
+#ifdef DEBUG_ENABLED
+#include "ruzta_project_settings.h"
+#endif
+#ifdef TOOLS_ENABLED
+#include "ruzta_editor_plugin.h"
+#endif
+
 #include <godot_cpp/classes/project_settings.hpp> // original: core/config/project_settings.h
 #include <godot_cpp/classes/resource_loader.hpp> // original: core/io/resource_loader.h
 #include <godot_cpp/variant/utility_functions.hpp> // original: core/math/math_defs.h
@@ -40,11 +49,11 @@
 
 #ifdef DEBUG_ENABLED
 // TODO: #include "core/string/string_builder.h" // original: core/string/string_builder.h
-// TODO: #include "servers/text/text_server.h" // original: servers/text/text_server.h
+#include <godot_cpp/classes/text_server.hpp> // original: servers/text/text_server.h
 #endif
 
 #ifdef TOOLS_ENABLED
-// TODO: #include "editor/settings/editor_settings.h" // original: editor/settings/editor_settings.h
+#include <godot_cpp/classes/editor_settings.hpp> // original: editor/settings/editor_settings.h
 #endif
 
 // This function is used to determine that a type is "built-in" as opposed to native
@@ -97,7 +106,7 @@ bool RuztaParser::annotation_exists(const String &p_annotation_name) const {
 
 #ifdef DEBUG_ENABLED
 void RuztaParser::update_project_settings() {
-	is_project_ignoring_warnings = !GLOBAL_GET("debug/ruzta/warnings/enable").booleanize();
+	is_project_ignoring_warnings = !(bool)GLOBAL_GET("debug/ruzta/warnings/enable");
 
 	for (int i = 0; i < RuztaWarning::WARNING_MAX; i++) {
 		const String setting_path = RuztaWarning::get_setting_path_from_code((RuztaWarning::Code)i);
@@ -119,14 +128,14 @@ void RuztaParser::update_project_settings() {
 	warning_directory_rules.clear();
 
 	const Dictionary rules = GLOBAL_GET("debug/ruzta/warnings/directory_rules");
-	for (const KeyValue<Variant, Variant> &kv : rules) {
-		String dir = kv.key.operator String().simplify_path();
+	for (const Variant &key : rules.keys()) {
+		String dir = String(key).simplify_path();
 		ERR_CONTINUE_MSG(!dir.begins_with("res://"), R"(Paths in the project setting "debug/ruzta/warnings/directory_rules" keys must start with the "res://" prefix.)");
 		if (!dir.ends_with("/")) {
 			dir += '/';
 		}
 
-		const int decision = kv.value;
+		const int decision = rules[key];
 		ERR_CONTINUE(decision < 0 || decision >= WarningDirectoryRule::DECISION_MAX);
 
 		warning_directory_rules.push_back({ dir, (WarningDirectoryRule::Decision)decision });
@@ -141,6 +150,11 @@ void RuztaParser::update_project_settings() {
 	warning_directory_rules.sort_custom<RuleSort>();
 }
 #endif // DEBUG_ENABLED
+
+template <typename... VarArgs>
+Vector<Variant> varray(VarArgs... p_args) {
+	return Vector<Variant>{ p_args... };
+}
 
 RuztaParser::RuztaParser() {
 	// Register valid annotations.
@@ -423,20 +437,20 @@ Error RuztaParser::parse(const String &p_source_code, const String &p_script_pat
 
 	int tab_size = 4;
 #ifdef TOOLS_ENABLED
-	if (EditorSettings::get_singleton()) {
-		tab_size = EditorSettings::get_singleton()->get_setting("text_editor/behavior/indent/size");
+	if (RuztaEditorPlugin::get_editor_settings() != nullptr) {
+		tab_size = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/behavior/indent/size");
 	}
 #endif // TOOLS_ENABLED
 
 	if (p_for_completion) {
 		// Remove cursor sentinel char.
-		const Vector<String> lines = p_source_code.split("\n");
+		const PackedStringArray lines = p_source_code.split("\n");
 		cursor_line = 1;
 		cursor_column = 1;
 		for (int i = 0; i < lines.size(); i++) {
 			bool found = false;
 			const String &line = lines[i];
-			for (int j = 0; j < line.size(); j++) {
+			for (int j = 0; j < line.length(); j++) {
 				if (line[j] == char32_t(0xFFFF)) {
 					found = true;
 					break;
@@ -2889,7 +2903,7 @@ RuztaParser::ExpressionNode *RuztaParser::parse_builtin_constant(ExpressionNode 
 			constant->value = Math::TAU;
 			break;
 		case RuztaTokenizer::Token::CONST_INF:
-			constant->value = Math::INF;
+			constant->value = Math_INF;
 			break;
 		case RuztaTokenizer::Token::CONST_NAN:
 			constant->value = Math::NaN;
@@ -3930,12 +3944,12 @@ static String _process_doc_line(const String &p_line, const String &p_text, cons
 	while (process) {
 		switch (r_state) {
 			case DOC_LINE_NORMAL: {
-				int lb_pos = line.find_char('[', from);
+				int lb_pos = line.find(String('['), from);
 				if (lb_pos < 0) {
 					process = false;
 					break;
 				}
-				int rb_pos = line.find_char(']', lb_pos + 1);
+				int rb_pos = line.find(String(']'), lb_pos + 1);
 				if (rb_pos < 0) {
 					process = false;
 					break;
@@ -4566,7 +4580,7 @@ static StringName _find_narrowest_native_or_global_class(const RuztaParser::Data
 			if (p_type.script_type.is_valid()) {
 				script = p_type.script_type;
 			} else {
-				script = ResourceLoader::load(p_type.script_path, StringName("Script"));
+				script = ResourceLoader::get_singleton()->load(p_type.script_path, StringName("Script"));
 			}
 
 			if (p_type.is_meta_type) {
@@ -6488,7 +6502,7 @@ void RuztaParser::TreePrinter::print_tree(const RuztaParser &p_parser) {
 	}
 	print_class(class_tree);
 
-	print_line(String(printed));
+	print_line(printed);
 }
 
 #endif // DEBUG_ENABLED

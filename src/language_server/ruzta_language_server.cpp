@@ -2,10 +2,12 @@
 /*  ruzta_language_server.cpp                                          */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -33,7 +35,7 @@
 #include <godot_cpp/classes/os.hpp> // original: core/os/os.h
 // TODO: #include "editor/editor_log.h" // original: editor/editor_log.h
 // TODO: #include "editor/editor_node.h" // original: editor/editor_node.h
-// TODO: #include "editor/settings/editor_settings.h" // original: editor/settings/editor_settings.h
+#include <godot_cpp/classes/editor_settings.hpp> // original: editor/settings/editor_settings.h
 
 int RuztaLanguageServer::port_override = -1;
 
@@ -67,14 +69,14 @@ void RuztaLanguageServer::_notification(int p_what) {
 		} break;
 
 		case EditorSettings::NOTIFICATION_EDITOR_SETTINGS_CHANGED: {
-			if (!EditorSettings::get_singleton()->check_changed_settings_in_group("network/language_server")) {
+			if (!RuztaEditorPlugin::get_editor_settings()->check_changed_settings_in_group("network/language_server")) {
 				break;
 			}
 
-			String remote_host = String(_EDITOR_GET("network/language_server/remote_host"));
-			int remote_port = (RuztaLanguageServer::port_override > -1) ? RuztaLanguageServer::port_override : (int)_EDITOR_GET("network/language_server/remote_port");
-			bool remote_use_thread = (bool)_EDITOR_GET("network/language_server/use_thread");
-			int remote_poll_limit = (int)_EDITOR_GET("network/language_server/poll_limit_usec");
+			String remote_host = String(RuztaEditorPlugin::get_editor_settings()->get_setting("network/language_server/remote_host"));
+			int remote_port = (RuztaLanguageServer::port_override > -1) ? RuztaLanguageServer::port_override : (int)RuztaEditorPlugin::get_editor_settings()->get_setting("network/language_server/remote_port");
+			bool remote_use_thread = (bool)RuztaEditorPlugin::get_editor_settings()->get_setting("network/language_server/use_thread");
+			int remote_poll_limit = (int)RuztaEditorPlugin::get_editor_settings()->get_setting("network/language_server/poll_limit_usec");
 			if (remote_host != host || remote_port != port || remote_use_thread != use_thread || remote_poll_limit != poll_limit_usec) {
 				stop();
 				start();
@@ -94,10 +96,10 @@ void RuztaLanguageServer::thread_main(void *p_userdata) {
 }
 
 void RuztaLanguageServer::start() {
-	host = String(_EDITOR_GET("network/language_server/remote_host"));
-	port = (RuztaLanguageServer::port_override > -1) ? RuztaLanguageServer::port_override : (int)_EDITOR_GET("network/language_server/remote_port");
-	use_thread = (bool)_EDITOR_GET("network/language_server/use_thread");
-	poll_limit_usec = (int)_EDITOR_GET("network/language_server/poll_limit_usec");
+	host = String(RuztaEditorPlugin::get_editor_settings()->get_setting("network/language_server/remote_host"));
+	port = (RuztaLanguageServer::port_override > -1) ? RuztaLanguageServer::port_override : (int)RuztaEditorPlugin::get_editor_settings()->get_setting("network/language_server/remote_port");
+	use_thread = (bool)RuztaEditorPlugin::get_editor_settings()->get_setting("network/language_server/use_thread");
+	poll_limit_usec = (int)RuztaEditorPlugin::get_editor_settings()->get_setting("network/language_server/poll_limit_usec");
 	if (protocol.start(port, IPAddress(host)) == OK) {
 		EditorNode::get_log()->add_message("--- Ruzta language server started on port " + itos(port) + " ---", EditorLog::MSG_TYPE_EDITOR);
 		if (use_thread) {

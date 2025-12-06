@@ -2,10 +2,12 @@
 /*  ruzta_tokenizer_buffer.cpp                                         */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -30,8 +32,8 @@
 
 #include "ruzta_tokenizer_buffer.h"
 
-// TODO: #include "core/io/compression.h" // original: core/io/compression.h
-// TODO: #include "core/io/marshalls.h" // original: core/io/marshalls.h
+// #include "compression.h"
+#include <godot_cpp/classes/marshalls.hpp> // original: core/io/marshalls.h
 
 int RuztaTokenizerBuffer::_token_to_binary(const Token &p_token, Vector<uint8_t> &r_buffer, int p_start, HashMap<StringName, uint32_t> &r_identifiers_map, HashMap<Variant, uint32_t> &r_constants_map) {
 	int pos = p_start;
@@ -300,7 +302,7 @@ Vector<uint8_t> RuztaTokenizerBuffer::parse_code_string(const String &p_code, Co
 
 	// Save identifiers.
 	for (const StringName &id : rev_identifier_map) {
-		String s = id.operator String();
+		String s = String(id);
 		int len = s.length();
 
 		contents.resize(buf_pos + (len + 1) * 4);

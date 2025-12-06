@@ -2,10 +2,12 @@
 /*  ruzta_utility_callable.cpp                                         */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -29,6 +31,7 @@
 /**************************************************************************/
 
 #include "ruzta_utility_callable.h"
+#include "ruzta_variant_extension.h"
 
 bool RuztaUtilityCallable::compare_equal(const CallableCustom *p_a, const CallableCustom *p_b) {
 	return p_a->hash() == p_b->hash();
@@ -85,7 +88,7 @@ int RuztaUtilityCallable::get_argument_count(bool &r_is_valid) const {
 			return 0;
 		case TYPE_GLOBAL:
 			r_is_valid = true;
-			return Variant::get_utility_function_argument_count(function_name);
+			return RuztaVariantExtension::get_utility_function_argument_count(function_name);
 		case TYPE_RUZTA:
 			r_is_valid = true;
 			return RuztaUtilityFunctions::get_function_argument_count(function_name);
@@ -102,7 +105,7 @@ void RuztaUtilityCallable::call(const Variant **p_arguments, int p_argcount, Var
 			r_call_error.expected = 0;
 			break;
 		case TYPE_GLOBAL:
-			Variant::call_utility_function(function_name, &r_return_value, p_arguments, p_argcount, r_call_error);
+			RuztaVariantExtension::call_utility_function(function_name, &r_return_value, p_arguments, p_argcount, r_call_error);
 			break;
 		case TYPE_RUZTA:
 			ruzta_function(&r_return_value, p_arguments, p_argcount, r_call_error);
@@ -115,7 +118,7 @@ RuztaUtilityCallable::RuztaUtilityCallable(const StringName &p_function_name) {
 	if (RuztaUtilityFunctions::function_exists(p_function_name)) {
 		type = TYPE_RUZTA;
 		ruzta_function = RuztaUtilityFunctions::get_function(p_function_name);
-	} else if (Variant::has_utility_function(p_function_name)) {
+	} else if (RuztaVariantExtension::has_utility_function(p_function_name)) {
 		type = TYPE_GLOBAL;
 	} else {
 		ERR_PRINT(vformat(R"(Unknown utility function "%s".)", p_function_name));

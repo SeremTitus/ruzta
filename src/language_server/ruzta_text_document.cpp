@@ -2,10 +2,12 @@
 /*  ruzta_text_document.cpp                                            */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -35,8 +37,8 @@
 #include "ruzta_language_protocol.h"
 
 // TODO: #include "editor/script/script_text_editor.h" // original: editor/script/script_text_editor.h
-// TODO: #include "editor/settings/editor_settings.h" // original: editor/settings/editor_settings.h
-// TODO: #include "servers/display/display_server.h" // original: servers/display/display_server.h
+#include <godot_cpp/classes/editor_settings.hpp> // original: editor/settings/editor_settings.h
+#include <godot_cpp/classes/display_server.hpp> // original: servers/display/display_server.h
 
 void RuztaTextDocument::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("didOpen"), &RuztaTextDocument::didOpen);
@@ -88,7 +90,7 @@ void RuztaTextDocument::willSaveWaitUntil(const Variant &p_param) {
 	LSP::TextDocumentItem doc = load_document_item(p_param);
 
 	String path = RuztaLanguageProtocol::get_singleton()->get_workspace()->get_file_path(doc.uri);
-	Ref<Script> scr = ResourceLoader::load(path);
+	Ref<Script> scr = ResourceLoader::get_singleton()->load(path);
 	if (scr.is_valid()) {
 		ScriptEditor::get_singleton()->clear_docs_from_script(scr);
 	}
@@ -102,7 +104,7 @@ void RuztaTextDocument::didSave(const Variant &p_param) {
 	sync_script_content(doc.uri, text);
 
 	String path = RuztaLanguageProtocol::get_singleton()->get_workspace()->get_file_path(doc.uri);
-	Ref<Ruzta> scr = ResourceLoader::load(path);
+	Ref<Ruzta> scr = ResourceLoader::get_singleton()->load(path);
 	if (scr.is_valid() && (scr->load_source_code(path) == OK)) {
 		if (scr->is_tool()) {
 			scr->get_language()->reload_tool_script(scr, true);
@@ -337,7 +339,7 @@ Dictionary RuztaTextDocument::resolve(const Dictionary &p_params) {
 
 	if (item.kind == LSP::CompletionItemKind::Event) {
 		if (params.context.triggerKind == LSP::CompletionTriggerKind::TriggerCharacter && (params.context.triggerCharacter == "(")) {
-			const String quote_style = EDITOR_GET("text_editor/completion/use_single_quotes") ? "'" : "\"";
+			const String quote_style = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/completion/use_single_quotes") ? "'" : "\"";
 			item.insertText = item.label.quote(quote_style);
 		}
 	}

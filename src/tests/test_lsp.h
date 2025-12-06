@@ -2,10 +2,12 @@
 /*  test_lsp.h                                                            */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -41,7 +43,7 @@
 #include "../language_server/ruzta_extend_parser.h"
 #include "../language_server/ruzta_language_protocol.h"
 #include "../language_server/ruzta_workspace.h"
-// TODO: #include "../language_server/godot_lsp.h" // original: ../language_server/godot_lsp.h
+#include "../language_server/godot_lsp.h" // original: ../language_server/godot_lsp.h
 
 #include <godot_cpp/classes/dir_access.hpp> // original: core/io/dir_access.h
 // TODO: #include "core/io/file_access_pack.h" // original: core/io/file_access_pack.h
@@ -50,7 +52,7 @@
 // TODO: #include "editor/editor_node.h" // original: editor/editor_node.h
 
 #include "modules/ruzta/ruzta_analyzer.h"
-// TODO: #include "modules/regex/regex.h" // original: modules/regex/regex.h
+#include <godot_cpp/classes/reg_ex.hpp> // original: modules/regex/regex.h
 
 // TODO: #include "thirdparty/doctest/doctest.h" // original: thirdparty/doctest/doctest.h
 

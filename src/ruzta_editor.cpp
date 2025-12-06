@@ -2,10 +2,12 @@
 /*  ruzta_editor.cpp                                                   */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -40,31 +42,32 @@
 // TODO: #include "editor/script_templates/templates.gen.h" // original: editor/script_templates/templates.gen.h
 #endif
 
+#include <godot_cpp/classes/os.hpp> // original:
 #include <godot_cpp/classes/engine.hpp> // original: core/config/engine.h
-#include <godot_cpp/core/constants.hpp> // original: core/core_constants.h
+#include "ruzta_variant/core_constants.h" // original: core/core_constants.h
 #include <godot_cpp/classes/file_access.hpp> // original: core/io/file_access.h
-// TODO: #include "core/math/expression.h" // original: core/math/expression.h
+#include <godot_cpp/classes/expression.hpp> // original: core/math/expression.h
 // TODO: #include "core/variant/container_type_validate.h" // original: core/variant/container_type_validate.h
 
 #ifdef TOOLS_ENABLED
 #include <godot_cpp/classes/project_settings.hpp> // original: core/config/project_settings.h
 // TODO: #include "editor/editor_node.h" // original: editor/editor_node.h
 // TODO: #include "editor/editor_string_names.h" // original: editor/editor_string_names.h
-// TODO: #include "editor/file_system/editor_file_system.h" // original: editor/file_system/editor_file_system.h
-// TODO: #include "editor/settings/editor_settings.h" // original: editor/settings/editor_settings.h
+#include <godot_cpp/classes/editor_file_system.hpp> // original: editor/file_system/editor_file_system.h
+#include <godot_cpp/classes/editor_settings.hpp> // original: editor/settings/editor_settings.h
 #endif
 
-Vector<String> RuztaLanguage::get_comment_delimiters() const {
+PackedStringArray RuztaLanguage::_get_comment_delimiters() const {
 	static const Vector<String> delimiters = { "#" };
 	return delimiters;
 }
 
-Vector<String> RuztaLanguage::get_doc_comment_delimiters() const {
+PackedStringArray RuztaLanguage::_get_doc_comment_delimiters() const {
 	static const Vector<String> delimiters = { "##" };
 	return delimiters;
 }
 
-Vector<String> RuztaLanguage::get_string_delimiters() const {
+PackedStringArray RuztaLanguage::_get_string_delimiters() const {
 	static const Vector<String> delimiters = {
 		"\" \"",
 		"' '",
@@ -75,18 +78,18 @@ Vector<String> RuztaLanguage::get_string_delimiters() const {
 	return delimiters;
 }
 
-bool RuztaLanguage::is_using_templates() {
+bool RuztaLanguage::_is_using_templates() {
 	return true;
 }
 
-Ref<Script> RuztaLanguage::make_template(const String &p_template, const String &p_class_name, const String &p_base_class_name) const {
+Ref<Script> RuztaLanguage::_make_template(const String &p_template, const String &p_class_name, const String &p_base_class_name) const {
 	Ref<Ruzta> scr;
 	scr.instantiate();
 
 	String processed_template = p_template;
 
 #ifdef TOOLS_ENABLED
-	const bool type_hints = EditorSettings::get_singleton()->get_setting("text_editor/completion/add_type_hints");
+	const bool type_hints = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/completion/add_type_hints");
 #else
 	const bool type_hints = true;
 #endif
@@ -134,15 +137,15 @@ static void get_function_names_recursively(const RuztaParser::ClassNode *p_class
 	for (int i = 0; i < p_class->members.size(); i++) {
 		if (p_class->members[i].type == RuztaParser::ClassNode::Member::FUNCTION) {
 			const RuztaParser::FunctionNode *function = p_class->members[i].function;
-			r_funcs[function->start_line] = p_prefix.is_empty() ? String(function->identifier->name) : p_prefix + "." + String(function->identifier->name);
+			r_funcs[function->start_line] = p_prefix.is_empty() ? String(function->identifier->name) : p_prefix + String(".") + String(function->identifier->name);
 		} else if (p_class->members[i].type == RuztaParser::ClassNode::Member::CLASS) {
 			String new_prefix = p_class->members[i].m_class->identifier->name;
-			get_function_names_recursively(p_class->members[i].m_class, p_prefix.is_empty() ? new_prefix : p_prefix + "." + new_prefix, r_funcs);
+			get_function_names_recursively(p_class->members[i].m_class, p_prefix.is_empty() ? new_prefix : p_prefix + String(".") + new_prefix, r_funcs);
 		}
 	}
 }
 
-bool RuztaLanguage::validate(const String &p_script, const String &p_path, List<String> *r_functions, List<ScriptLanguage::ScriptError> *r_errors, List<ScriptLanguage::Warning> *r_warnings, HashSet<int> *r_safe_lines) const {
+Dictionary RuztaLanguage::_validate(const String &p_script, const String &p_path, bool p_validate_functions, bool p_validate_errors, bool p_validate_warnings, bool p_validate_safe_lines) const {
 	RuztaParser parser;
 	RuztaAnalyzer analyzer(&parser);
 
@@ -166,27 +169,27 @@ bool RuztaLanguage::validate(const String &p_script, const String &p_path, List<
 #endif
 	if (err) {
 		if (r_errors) {
-			for (const RuztaParser::ParserError &pe : parser.get_errors()) {
+		for (const RuztaParser::ParserError &pe : parser.get_errors()) {
 				ScriptLanguage::ScriptError e;
 				e.path = p_path;
 				e.line = pe.line;
 				e.column = pe.column;
 				e.message = pe.message;
 				r_errors->push_back(e);
-			}
+		}
 
-			for (KeyValue<String, Ref<RuztaParserRef>> E : parser.get_depended_parsers()) {
-				RuztaParser *depended_parser = E.value->get_parser();
-				for (const RuztaParser::ParserError &pe : depended_parser->get_errors()) {
+		for (KeyValue<String, Ref<RuztaParserRef>> E : parser.get_depended_parsers()) {
+			RuztaParser *depended_parser = E.value->get_parser();
+			for (const RuztaParser::ParserError &pe : depended_parser->get_errors()) {
 					ScriptLanguage::ScriptError e;
 					e.path = E.key;
 					e.line = pe.line;
 					e.column = pe.column;
 					e.message = pe.message;
 					r_errors->push_back(e);
-				}
 			}
 		}
+	}
 		return false;
 	} else if (r_functions) {
 		const RuztaParser::ClassNode *cl = parser.get_tree();
@@ -195,7 +198,7 @@ bool RuztaLanguage::validate(const String &p_script, const String &p_path, List<
 		get_function_names_recursively(cl, "", funcs);
 
 		for (const KeyValue<int, String> &E : funcs) {
-			r_functions->push_back(E.value + ":" + itos(E.key));
+			r_functions->push_back(E.value + String(":") + itos(E.key));
 		}
 	}
 
@@ -213,15 +216,48 @@ bool RuztaLanguage::validate(const String &p_script, const String &p_path, List<
 	return true;
 }
 
-bool RuztaLanguage::supports_builtin_mode() const {
+bool RuztaLanguage::_supports_builtin_mode() const {
 	return true;
 }
 
-bool RuztaLanguage::supports_documentation() const {
+bool RuztaLanguage::_supports_documentation() const {
 	return true;
 }
 
-int RuztaLanguage::find_function(const String &p_function, const String &p_code) const {
+String RuztaLanguage::_validate_path(const String &p_path) const {
+	// Ruzta doesn't have special path validation requirements
+	return "";
+}
+
+bool RuztaLanguage::_has_named_classes() const {
+	return true;
+}
+
+bool RuztaLanguage::_can_make_function() const {
+	return true;
+}
+
+Error RuztaLanguage::_open_in_external_editor(const Ref<Script> &p_script, int32_t p_line, int32_t p_column) {
+	return ERR_UNAVAILABLE; // Not supported by default
+}
+
+bool RuztaLanguage::_overrides_external_editor() {
+	return false;
+}
+
+ScriptLanguage::ScriptNameCasing RuztaLanguage::_preferred_file_name_casing() const {
+	return ScriptLanguage::SCRIPT_NAME_CASING_SNAKE_CASE;
+}
+
+void RuztaLanguage::_thread_enter() {
+	// No special thread initialization needed
+}
+
+void RuztaLanguage::_thread_exit() {
+	// No special thread cleanup needed
+}
+
+int32_t RuztaLanguage::_find_function(const String &p_function, const String &p_code) const {
 	RuztaTokenizerText tokenizer;
 	tokenizer.set_source_code(p_code);
 	int indent = 0;
@@ -246,7 +282,7 @@ int RuztaLanguage::find_function(const String &p_function, const String &p_code)
 	return -1;
 }
 
-Script *RuztaLanguage::create_script() const {
+Object *RuztaLanguage::_create_script() const {
 	return memnew(Ruzta);
 }
 
@@ -259,11 +295,11 @@ thread_local String RuztaLanguage::_debug_error;
 bool RuztaLanguage::debug_break_parse(const String &p_file, int p_line, const String &p_error) {
 	// break because of parse error
 
-	if (EngineDebugger::is_active() && Thread::get_caller_id() == Thread::get_main_id()) {
+	if (EngineDebugger::get_singleton()->is_active() && OS::get_singleton()->get_thread_caller_id() == OS::get_singleton()->get_main_thread_id()) {
 		_debug_parse_err_line = p_line;
 		_debug_parse_err_file = p_file;
 		_debug_error = p_error;
-		EngineDebugger::get_script_debugger()->debug(this, false, true);
+		EngineDebugger::get_singleton()->get_script_debugger()->debug(this, false, true);
 		// Because this is thread local, clear the memory afterwards.
 		_debug_parse_err_file = String();
 		_debug_error = String();
@@ -274,12 +310,12 @@ bool RuztaLanguage::debug_break_parse(const String &p_file, int p_line, const St
 }
 
 bool RuztaLanguage::debug_break(const String &p_error, bool p_allow_continue) {
-	if (EngineDebugger::is_active()) {
+	if (EngineDebugger::get_singleton()->is_active()) {
 		_debug_parse_err_line = -1;
 		_debug_parse_err_file = "";
 		_debug_error = p_error;
 		bool is_error_breakpoint = p_error != "Breakpoint";
-		EngineDebugger::get_script_debugger()->debug(this, p_allow_continue, is_error_breakpoint);
+		EngineDebugger::get_singleton()->get_script_debugger()->debug(this, p_allow_continue, is_error_breakpoint);
 		// Because this is thread local, clear the memory afterwards.
 		_debug_parse_err_file = String();
 		_debug_error = String();
@@ -289,11 +325,11 @@ bool RuztaLanguage::debug_break(const String &p_error, bool p_allow_continue) {
 	}
 }
 
-String RuztaLanguage::debug_get_error() const {
+String RuztaLanguage::_debug_get_error() const {
 	return _debug_error;
 }
 
-int RuztaLanguage::debug_get_stack_level_count() const {
+int32_t RuztaLanguage::_debug_get_stack_level_count() const {
 	if (_debug_parse_err_line >= 0) {
 		return 1;
 	}
@@ -301,7 +337,7 @@ int RuztaLanguage::debug_get_stack_level_count() const {
 	return _call_stack_size;
 }
 
-int RuztaLanguage::debug_get_stack_level_line(int p_level) const {
+int32_t RuztaLanguage::_debug_get_stack_level_line(int32_t p_level) const {
 	if (_debug_parse_err_line >= 0) {
 		return _debug_parse_err_line;
 	}
@@ -311,17 +347,17 @@ int RuztaLanguage::debug_get_stack_level_line(int p_level) const {
 	return *(_get_stack_level(p_level)->line);
 }
 
-String RuztaLanguage::debug_get_stack_level_function(int p_level) const {
+String RuztaLanguage::_debug_get_stack_level_function(int32_t p_level) const {
 	if (_debug_parse_err_line >= 0) {
 		return "";
 	}
 
 	ERR_FAIL_INDEX_V(p_level, (int)_call_stack_size, "");
 	RuztaFunction *func = _get_stack_level(p_level)->function;
-	return func ? func->get_name().operator String() : "";
+	return func ? String(func->get_name()) : "";
 }
 
-String RuztaLanguage::debug_get_stack_level_source(int p_level) const {
+String RuztaLanguage::_debug_get_stack_level_source(int32_t p_level) const {
 	if (_debug_parse_err_line >= 0) {
 		return _debug_parse_err_file;
 	}
@@ -330,12 +366,13 @@ String RuztaLanguage::debug_get_stack_level_source(int p_level) const {
 	return _get_stack_level(p_level)->function->get_source();
 }
 
-void RuztaLanguage::debug_get_stack_level_locals(int p_level, List<String> *p_locals, List<Variant> *p_values, int p_max_subitems, int p_max_depth) {
+Dictionary RuztaLanguage::_debug_get_stack_level_locals(int32_t p_level, int32_t p_max_subitems, int32_t p_max_depth) {
+	Dictionary locals_dict;
 	if (_debug_parse_err_line >= 0) {
-		return;
+		return locals_dict;
 	}
 
-	ERR_FAIL_INDEX(p_level, (int)_call_stack_size);
+	ERR_FAIL_INDEX_V(p_level, (int)_call_stack_size, locals_dict);
 
 	CallLevel *cl = _get_stack_level(p_level);
 	RuztaFunction *f = cl->function;
@@ -344,37 +381,38 @@ void RuztaLanguage::debug_get_stack_level_locals(int p_level, List<String> *p_lo
 
 	f->debug_get_stack_member_state(*cl->line, &locals);
 	for (const Pair<StringName, int> &E : locals) {
-		p_locals->push_back(E.first);
-		p_values->push_back(cl->stack[E.second]);
+		locals_dict[E.first] = cl->stack[E.second];
 	}
+	return locals_dict;
 }
 
-void RuztaLanguage::debug_get_stack_level_members(int p_level, List<String> *p_members, List<Variant> *p_values, int p_max_subitems, int p_max_depth) {
+Dictionary RuztaLanguage::_debug_get_stack_level_members(int32_t p_level, int32_t p_max_subitems, int32_t p_max_depth) {
+	Dictionary members_dict;
 	if (_debug_parse_err_line >= 0) {
-		return;
+		return members_dict;
 	}
 
-	ERR_FAIL_INDEX(p_level, (int)_call_stack_size);
+	ERR_FAIL_INDEX_V(p_level, (int)_call_stack_size, members_dict);
 
 	CallLevel *cl = _get_stack_level(p_level);
 	RuztaInstance *instance = cl->instance;
 
 	if (!instance) {
-		return;
+		return members_dict;
 	}
 
 	Ref<Ruzta> scr = instance->get_script();
-	ERR_FAIL_COND(scr.is_null());
+	ERR_FAIL_COND_V(scr.is_null(), members_dict);
 
 	const HashMap<StringName, Ruzta::MemberInfo> &mi = scr->debug_get_member_indices();
 
 	for (const KeyValue<StringName, Ruzta::MemberInfo> &E : mi) {
-		p_members->push_back(E.key);
-		p_values->push_back(instance->debug_get_member_by_index(E.value.index));
+		members_dict[E.key] = instance->debug_get_member_by_index(E.value.index);
 	}
+	return members_dict;
 }
 
-ScriptInstance *RuztaLanguage::debug_get_stack_level_instance(int p_level) {
+void *RuztaLanguage::_debug_get_stack_level_instance(int32_t p_level) {
 	if (_debug_parse_err_line >= 0) {
 		return nullptr;
 	}
@@ -384,26 +422,21 @@ ScriptInstance *RuztaLanguage::debug_get_stack_level_instance(int p_level) {
 	return _get_stack_level(p_level)->instance;
 }
 
-void RuztaLanguage::debug_get_globals(List<String> *p_globals, List<Variant> *p_values, int p_max_subitems, int p_max_depth) {
+Dictionary RuztaLanguage::_debug_get_globals(int32_t p_max_subitems, int32_t p_max_depth) {
+	Dictionary globals_dict;
 	const HashMap<StringName, int> &name_idx = RuztaLanguage::get_singleton()->get_global_map();
 	const Variant *gl_array = RuztaLanguage::get_singleton()->get_global_array();
 
-	List<Pair<String, Variant>> cinfo;
-	get_public_constants(&cinfo);
+	// We can't easily get public constants as a List<Pair> anymore since _get_public_constants returns a Dictionary.
+	// But we can just check the dictionary.
+	Dictionary constants = _get_public_constants();
 
 	for (const KeyValue<StringName, int> &E : name_idx) {
 		if (ClassDB::class_exists(E.key) || Engine::get_singleton()->has_singleton(E.key)) {
 			continue;
 		}
 
-		bool is_script_constant = false;
-		for (List<Pair<String, Variant>>::Element *CE = cinfo.front(); CE; CE = CE->next()) {
-			if (CE->get().first == E.key) {
-				is_script_constant = true;
-				break;
-			}
-		}
-		if (is_script_constant) {
+		if (constants.has(E.key)) {
 			continue;
 		}
 
@@ -416,20 +449,20 @@ void RuztaLanguage::debug_get_globals(List<String> *p_globals, List<Variant> *p_
 		bool skip = false;
 		for (int i = 0; i < CoreConstants::get_global_constant_count(); i++) {
 			if (E.key == CoreConstants::get_global_constant_name(i)) {
-				skip = true;
+			skip = true;
 				break;
-			}
+		}
 		}
 		if (skip) {
 			continue;
 		}
 
-		p_globals->push_back(E.key);
-		p_values->push_back(var);
+		globals_dict[E.key] = var;
 	}
+	return globals_dict;
 }
 
-String RuztaLanguage::debug_parse_stack_level_expression(int p_level, const String &p_expression, int p_max_subitems, int p_max_depth) {
+String RuztaLanguage::_debug_parse_stack_level_expression(int32_t p_level, const String &p_expression, int32_t p_max_subitems, int32_t p_max_depth) {
 	List<String> names;
 	List<Variant> values;
 	debug_get_stack_level_locals(p_level, &names, &values, p_max_subitems, p_max_depth);
@@ -456,16 +489,19 @@ String RuztaLanguage::debug_parse_stack_level_expression(int p_level, const Stri
 	return String();
 }
 
-void RuztaLanguage::get_recognized_extensions(List<String> *p_extensions) const {
-	p_extensions->push_back("rz");
+PackedStringArray RuztaLanguage::_get_recognized_extensions() const {
+	PackedStringArray extensions;
+	extensions.push_back("rz");
+	return extensions;
 }
 
-void RuztaLanguage::get_public_functions(List<MethodInfo> *p_functions) const {
-	List<StringName> functions;
-	RuztaUtilityFunctions::get_function_list(&functions);
+TypedArray<Dictionary> RuztaLanguage::_get_public_functions() const {
+	TypedArray<Dictionary> functions;
+	List<StringName> function_list;
+	RuztaUtilityFunctions::get_function_list(&function_list);
 
-	for (const StringName &E : functions) {
-		p_functions->push_back(RuztaUtilityFunctions::get_function_info(E));
+	for (const StringName &E : function_list) {
+		functions.push_back(RuztaUtilityFunctions::get_function_info(E));
 	}
 
 	// Not really "functions", but show in documentation.
@@ -474,7 +510,7 @@ void RuztaLanguage::get_public_functions(List<MethodInfo> *p_functions) const {
 		mi.name = "preload";
 		mi.arguments.push_back(PropertyInfo(Variant::STRING, "path"));
 		mi.return_val = PropertyInfo(Variant::OBJECT, "", PROPERTY_HINT_RESOURCE_TYPE, "Resource");
-		p_functions->push_back(mi);
+		functions.push_back(mi);
 	}
 	{
 		MethodInfo mi;
@@ -483,61 +519,51 @@ void RuztaLanguage::get_public_functions(List<MethodInfo> *p_functions) const {
 		mi.arguments.push_back(PropertyInfo(Variant::BOOL, "condition"));
 		mi.arguments.push_back(PropertyInfo(Variant::STRING, "message"));
 		mi.default_arguments.push_back(String());
-		p_functions->push_back(mi);
+		functions.push_back(mi);
 	}
+	return functions;
 }
 
-void RuztaLanguage::get_public_constants(List<Pair<String, Variant>> *p_constants) const {
-	Pair<String, Variant> pi;
-	pi.first = "PI";
-	pi.second = Math::PI;
-	p_constants->push_back(pi);
-
-	Pair<String, Variant> tau;
-	tau.first = "TAU";
-	tau.second = Math::TAU;
-	p_constants->push_back(tau);
-
-	Pair<String, Variant> infinity;
-	infinity.first = "INF";
-	infinity.second = Math::INF;
-	p_constants->push_back(infinity);
-
-	Pair<String, Variant> nan;
-	nan.first = "NAN";
-	nan.second = Math::NaN;
-	p_constants->push_back(nan);
+Dictionary RuztaLanguage::_get_public_constants() const {
+	Dictionary constants;
+	constants["PI"] = Math_PI;
+	constants["TAU"] = Math_TAU;
+	constants["INF"] = Math_INF;
+	constants["NAN"] = Math_NAN;
+	return constants;
 }
 
-void RuztaLanguage::get_public_annotations(List<MethodInfo> *p_annotations) const {
+TypedArray<Dictionary> RuztaLanguage::_get_public_annotations() const {
+	TypedArray<Dictionary> annotations_array;
 	RuztaParser parser;
 	List<MethodInfo> annotations;
 	parser.get_annotation_list(&annotations);
 
 	for (const MethodInfo &E : annotations) {
-		p_annotations->push_back(E);
+		annotations_array.push_back(E);
 	}
+	return annotations_array;
 }
 
-String RuztaLanguage::make_function(const String &p_class, const String &p_name, const PackedStringArray &p_args) const {
+String RuztaLanguage::_make_function(const String &p_class_name, const String &p_function_name, const PackedStringArray &p_function_args) const {
 #ifdef TOOLS_ENABLED
-	const bool type_hints = EditorSettings::get_singleton()->get_setting("text_editor/completion/add_type_hints");
+	const bool type_hints = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/completion/add_type_hints");
 #else
 	const bool type_hints = true;
 #endif
 
-	String result = "func " + p_name + "(";
-	if (p_args.size()) {
-		for (int i = 0; i < p_args.size(); i++) {
+	String result = "func " + p_function_name + "(";
+	if (p_function_args.size()) {
+		for (int i = 0; i < p_function_args.size(); i++) {
 			if (i > 0) {
 				result += ", ";
 			}
 
-			const String name_unstripped = p_args[i].get_slicec(':', 0);
+			const String name_unstripped = p_function_args[i].get_slicec(':', 0);
 			result += name_unstripped.strip_edges();
 
 			if (type_hints) {
-				const String type_stripped = p_args[i].substr(name_unstripped.length() + 1).strip_edges();
+				const String type_stripped = p_function_args[i].substr(name_unstripped.length() + 1).strip_edges();
 				if (!type_stripped.is_empty()) {
 					result += ": " + type_stripped;
 				}
@@ -568,15 +594,25 @@ struct RuztaCompletionIdentifier {
 // For these methods, the location is based on the depth in the inheritance chain that the property
 // appears. For example, if you are completing code in a class that inherits Node2D, a property found on Node2D
 // will have a "better" (lower) location "score" than a property that is found on CanvasItem.
+auto ClassDB_has_property = [](const StringName &p_class, const StringName &p_property, bool p_no_inheritance = false) -> bool {
+	bool has_property = false;
+	godot::TypedArray<Dictionary> property_list = ClassDB::class_get_property_list(p_class, p_no_inheritance);
+	for (Dictionary property : property_list) {
+		if (property.has("name") && property["name"] == p_property) {
+			has_property = true;
+		}
+	}
+	return has_property;
+};
 
 static int _get_property_location(const StringName &p_class, const StringName &p_property) {
-	if (!ClassDB::has_property(p_class, p_property)) {
+	if (!ClassDB_has_property(p_class, p_property)) {
 		return ScriptLanguage::LOCATION_OTHER;
 	}
 
 	int depth = 0;
 	StringName class_test = p_class;
-	while (class_test && !ClassDB::has_property(class_test, p_property, true)) {
+	while (class_test && !ClassDB_has_property(class_test, p_property, true)) {
 		class_test = ClassDB::get_parent_class(class_test);
 		depth++;
 	}
@@ -598,13 +634,13 @@ static int _get_property_location(Ref<Script> p_script, const StringName &p_prop
 }
 
 static int _get_constant_location(const StringName &p_class, const StringName &p_constant) {
-	if (!ClassDB::has_integer_constant(p_class, p_constant)) {
+	if (!ClassDB::class_has_integer_constant(p_class, p_constant)) {
 		return ScriptLanguage::LOCATION_OTHER;
 	}
 
 	int depth = 0;
 	StringName class_test = p_class;
-	while (class_test && !ClassDB::has_integer_constant(class_test, p_constant, true)) {
+	while (class_test && !ClassDB::class_has_integer_constant(class_test, p_constant, true)) {
 		class_test = ClassDB::get_parent_class(class_test);
 		depth++;
 	}
@@ -626,13 +662,13 @@ static int _get_constant_location(Ref<Script> p_script, const StringName &p_cons
 }
 
 static int _get_signal_location(const StringName &p_class, const StringName &p_signal) {
-	if (!ClassDB::has_signal(p_class, p_signal)) {
+	if (!ClassDB::class_has_signal(p_class, p_signal)) {
 		return ScriptLanguage::LOCATION_OTHER;
 	}
 
 	int depth = 0;
 	StringName class_test = p_class;
-	while (class_test && !ClassDB::has_signal(class_test, p_signal, true)) {
+	while (class_test && !ClassDB::class_has_signal(class_test, p_signal, true)) {
 		class_test = ClassDB::get_parent_class(class_test);
 		depth++;
 	}
@@ -654,13 +690,13 @@ static int _get_signal_location(Ref<Script> p_script, const StringName &p_signal
 }
 
 static int _get_method_location(const StringName &p_class, const StringName &p_method) {
-	if (!ClassDB::has_method(p_class, p_method)) {
+	if (!ClassDB::class_has_method(p_class, p_method)) {
 		return ScriptLanguage::LOCATION_OTHER;
 	}
 
 	int depth = 0;
 	StringName class_test = p_class;
-	while (class_test && !ClassDB::has_method(class_test, p_method, true)) {
+	while (class_test && !ClassDB::class_has_method(class_test, p_method, true)) {
 		class_test = ClassDB::get_parent_class(class_test);
 		depth++;
 	}
@@ -669,13 +705,13 @@ static int _get_method_location(const StringName &p_class, const StringName &p_m
 }
 
 static int _get_enum_constant_location(const StringName &p_class, const StringName &p_enum_constant) {
-	if (!ClassDB::get_integer_constant_enum(p_class, p_enum_constant)) {
+	if (!ClassDB::class_get_integer_constant_enum(p_class, p_enum_constant)) {
 		return ScriptLanguage::LOCATION_OTHER;
 	}
 
 	int depth = 0;
 	StringName class_test = p_class;
-	while (class_test && !ClassDB::get_integer_constant_enum(class_test, p_enum_constant, true)) {
+	while (class_test && !ClassDB::class_get_integer_constant_enum(class_test, p_enum_constant, true)) {
 		class_test = ClassDB::get_parent_class(class_test);
 		depth++;
 	}
@@ -684,13 +720,13 @@ static int _get_enum_constant_location(const StringName &p_class, const StringNa
 }
 
 static int _get_enum_location(const StringName &p_class, const StringName &p_enum) {
-	if (!ClassDB::has_enum(p_class, p_enum)) {
+	if (!ClassDB::class_has_enum(p_class, p_enum)) {
 		return ScriptLanguage::LOCATION_OTHER;
 	}
 
 	int depth = 0;
 	StringName class_test = p_class;
-	while (class_test && !ClassDB::has_enum(class_test, p_enum, true)) {
+	while (class_test && !ClassDB::class_has_enum(class_test, p_enum, true)) {
 		class_test = ClassDB::get_parent_class(class_test);
 		depth++;
 	}
@@ -747,7 +783,7 @@ static String _make_arguments_hint(const MethodInfo &p_info, int p_arg_idx, bool
 	if (!p_is_annotation) {
 		arghint += _get_visual_datatype(p_info.return_val, false) + " ";
 	}
-	arghint += p_info.name + "(";
+	arghint += p_info.name + String("(");
 
 	int def_args = p_info.arguments.size() - p_info.default_arguments.size();
 	int i = 0;
@@ -759,7 +795,7 @@ static String _make_arguments_hint(const MethodInfo &p_info, int p_arg_idx, bool
 		if (i == p_arg_idx) {
 			arghint += String::chr(0xFFFF);
 		}
-		arghint += E.name + ": " + _get_visual_datatype(E, true);
+		arghint += E.name + String(": ") + _get_visual_datatype(E, true);
 
 		if (i - def_args >= 0) {
 			arghint += String(" = ") + p_info.default_arguments[i - def_args].get_construct_string();
@@ -813,9 +849,9 @@ static String _make_arguments_hint(const RuztaParser::FunctionNode *p_function, 
 		}
 		const RuztaParser::ParameterNode *par = p_function->parameters[i];
 		if (!par->get_datatype().is_hard_type()) {
-			arghint += par->identifier->name.operator String() + ": Variant";
+			arghint += String(par->identifier->name) + String(": Variant");
 		} else {
-			arghint += par->identifier->name.operator String() + ": " + par->get_datatype().to_string();
+			arghint += String(par->identifier->name) + ": " + par->get_datatype().to_string();
 		}
 
 		if (par->initializer) {
@@ -827,7 +863,7 @@ static String _make_arguments_hint(const RuztaParser::FunctionNode *p_function, 
 				} break;
 				case RuztaParser::Node::IDENTIFIER: {
 					const RuztaParser::IdentifierNode *id = static_cast<const RuztaParser::IdentifierNode *>(par->initializer);
-					def_val = id->name.operator String();
+					def_val = String(id->name);
 				} break;
 				case RuztaParser::Node::CALL: {
 					const RuztaParser::CallNode *call = static_cast<const RuztaParser::CallNode *>(par->initializer);
@@ -891,7 +927,7 @@ static String _make_arguments_hint(const RuztaParser::FunctionNode *p_function, 
 }
 
 static void _get_directory_contents(EditorFileSystemDirectory *p_dir, HashMap<String, ScriptLanguage::CodeCompletionOption> &r_list, const StringName &p_required_type = StringName()) {
-	const String quote_style = EDITOR_GET("text_editor/completion/use_single_quotes") ? "'" : "\"";
+	const String quote_style = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/completion/use_single_quotes") ? "'" : "\"";
 	const bool requires_type = !p_required_type.is_empty();
 
 	for (int i = 0; i < p_dir->get_file_count(); i++) {
@@ -947,9 +983,9 @@ static void _find_annotation_arguments(const RuztaParser::AnnotationNode *p_anno
 		LocalVector<StringName> native_classes;
 		ClassDB::get_inheriters_from_class("Node", native_classes);
 		for (const StringName &E : native_classes) {
-			if (!ClassDB::is_class_exposed(E)) {
-				continue;
-			}
+			// if (!ClassDB::is_class_exposed(E)) {
+			// 	continue;
+			// }
 			ScriptLanguage::CodeCompletionOption option(E, ScriptLanguage::CODE_COMPLETION_KIND_CLASS);
 			option.insert_text = option.display.quote(p_quote_style);
 			r_result.insert(option.display, option);
@@ -1049,10 +1085,9 @@ static void _list_available_types(bool p_inherit_only, RuztaParser::CompletionCo
 	// Built-in Variant Types
 	_find_built_in_variants(r_result, true);
 
-	LocalVector<StringName> native_types;
-	ClassDB::get_class_list(native_types);
+	PackedStringArray native_types = ClassDB::get_class_list();
 	for (const StringName &type : native_types) {
-		if (ClassDB::is_class_exposed(type) && !Engine::get_singleton()->has_singleton(type)) {
+		if (/* ClassDB::is_class_exposed(type) && */ !Engine::get_singleton()->has_singleton(type)) {
 			ScriptLanguage::CodeCompletionOption option(type, ScriptLanguage::CODE_COMPLETION_KIND_CLASS);
 			r_result.insert(option.display, option);
 		}
@@ -1063,7 +1098,7 @@ static void _list_available_types(bool p_inherit_only, RuztaParser::CompletionCo
 		if (!p_inherit_only && p_context.current_class->base_type.is_set()) {
 			// Native enums from base class
 			List<StringName> enums;
-			ClassDB::get_enum_list(p_context.current_class->base_type.native_type, &enums);
+			ClassDB::class_get_enum_list(p_context.current_class->base_type.native_type, &enums);
 			for (const StringName &E : enums) {
 				ScriptLanguage::CodeCompletionOption option(E, ScriptLanguage::CODE_COMPLETION_KIND_ENUM);
 				r_result.insert(option.display, option);
@@ -1305,9 +1340,9 @@ static void _find_identifiers_in_base(const RuztaCompletionIdentifier &p_base, b
 					}
 
 					if (!p_types_only) {
-						List<MethodInfo> methods;
-						scr->get_script_method_list(&methods);
-						for (const MethodInfo &E : methods) {
+						godot::TypedArray<Dictionary> methods = scr->get_script_method_list();
+						for (const Dictionary &info : methods) {
+							MethodInfo E = MethodInfo::from_dict(info);
 							if (E.name.begins_with("@")) {
 								continue;
 							}
@@ -1345,7 +1380,7 @@ static void _find_identifiers_in_base(const RuztaCompletionIdentifier &p_base, b
 				}
 
 				List<StringName> enums;
-				ClassDB::get_enum_list(type, &enums);
+				ClassDB::class_get_enum_list(type, &enums);
 				for (const StringName &E : enums) {
 					int location = p_recursion_depth + _get_enum_location(type, E);
 					ScriptLanguage::CodeCompletionOption option(E, ScriptLanguage::CODE_COMPLETION_KIND_ENUM, location);
@@ -1358,7 +1393,7 @@ static void _find_identifiers_in_base(const RuztaCompletionIdentifier &p_base, b
 
 				if (!p_only_functions) {
 					List<String> constants;
-					ClassDB::get_integer_constant_list(type, &constants);
+					ClassDB::class_get_integer_constant_list(type, &constants);
 					for (const String &E : constants) {
 						int location = p_recursion_depth + _get_constant_location(type, StringName(E));
 						ScriptLanguage::CodeCompletionOption option(E, ScriptLanguage::CODE_COMPLETION_KIND_CONSTANT, location);
@@ -1432,7 +1467,7 @@ static void _find_identifiers_in_base(const RuztaCompletionIdentifier &p_base, b
 
 					List<StringName> enum_values;
 
-					ClassDB::get_enum_constants(type, type_enum, &enum_values);
+					ClassDB::class_get_enum_constants(type, type_enum, &enum_values);
 
 					for (const StringName &E : enum_values) {
 						int location = p_recursion_depth + _get_enum_constant_location(type, E);
@@ -1458,7 +1493,7 @@ static void _find_identifiers_in_base(const RuztaCompletionIdentifier &p_base, b
 
 				GDExtensionCallError err;
 				Variant tmp;
-				Variant::construct(base_type.builtin_type, tmp, nullptr, 0, err);
+				RuztaVariantExtension::construct(base_type.builtin_type, tmp, nullptr, 0, err);
 				if (err.error != GDExtensionCallErrorType::GDEXTENSION_CALL_OK) {
 					return;
 				}
@@ -1467,11 +1502,13 @@ static void _find_identifiers_in_base(const RuztaCompletionIdentifier &p_base, b
 
 				if (!p_only_functions) {
 					List<PropertyInfo> members;
+					Variant base_value;
 					if (p_base.value.get_type() != Variant::NIL) {
-						p_base.value.get_property_list(&members);
+						base_value = p_base.value;
 					} else {
-						tmp.get_property_list(&members);
+						base_value = tmp;
 					}
+					RuztaVariantExtension::get_property_list(&base_value, &members);
 
 					for (const PropertyInfo &E : members) {
 						if (E.usage & (PROPERTY_USAGE_CATEGORY | PROPERTY_USAGE_GROUP | PROPERTY_USAGE_SUBGROUP | PROPERTY_USAGE_INTERNAL)) {
@@ -1492,7 +1529,7 @@ static void _find_identifiers_in_base(const RuztaCompletionIdentifier &p_base, b
 				}
 
 				List<MethodInfo> methods;
-				tmp.get_method_list(&methods);
+				RuztaVariantExtension::get_method_list(&tmp, &methods);
 				for (const MethodInfo &E : methods) {
 					if (base_type.kind == RuztaParser::DataType::ENUM && base_type.is_meta_type && !(E.flags & METHOD_FLAG_CONST)) {
 						// Enum types are static and cannot change, therefore we skip non-const dictionary methods.
@@ -1598,7 +1635,7 @@ static void _find_identifiers(const RuztaParser::CompletionContext &p_context, b
 	}
 
 	List<StringName> utility_func_names;
-	Variant::get_utility_function_list(&utility_func_names);
+	RuztaVariantExtension::get_utility_function_list(&utility_func_names);
 
 	for (const StringName &util_func_name : utility_func_names) {
 		ScriptLanguage::CodeCompletionOption option(util_func_name, ScriptLanguage::CODE_COMPLETION_KIND_FUNCTION);
@@ -1621,9 +1658,9 @@ static void _find_identifiers(const RuztaParser::CompletionContext &p_context, b
 	for (const KeyValue<StringName, int> &E : RuztaLanguage::get_singleton()->get_global_map()) {
 		ScriptLanguage::CodeCompletionOption option;
 		if (ClassDB::class_exists(E.key) || Engine::get_singleton()->has_singleton(E.key)) {
-			option = ScriptLanguage::CodeCompletionOption(E.key.operator String(), ScriptLanguage::CODE_COMPLETION_KIND_CLASS);
+			option = ScriptLanguage::CodeCompletionOption(String(E.key), ScriptLanguage::CODE_COMPLETION_KIND_CLASS);
 		} else {
-			option = ScriptLanguage::CodeCompletionOption(E.key.operator String(), ScriptLanguage::CODE_COMPLETION_KIND_CONSTANT);
+			option = ScriptLanguage::CodeCompletionOption(String(E.key), ScriptLanguage::CODE_COMPLETION_KIND_CONSTANT);
 		}
 		r_result.insert(option.display, option);
 	}
@@ -1706,7 +1743,7 @@ static RuztaCompletionIdentifier _type_from_property(const PropertyInfo &p_prope
 			ci.type.script_path = ScriptServer::get_global_class_path(p_property.class_name);
 			ci.type.native_type = ScriptServer::get_global_class_native_base(p_property.class_name);
 
-			Ref<Script> scr = ResourceLoader::load(ScriptServer::get_global_class_path(p_property.class_name));
+			Ref<Script> scr = ResourceLoader::get_singleton()->load(ScriptServer::get_global_class_path(p_property.class_name));
 			if (scr.is_valid()) {
 				ci.type.script_type = scr;
 			}
@@ -2036,7 +2073,7 @@ static bool _guess_expression_type(RuztaParser::CompletionContext &p_context, co
 
 					// Insert example values for functions which a structured dictionary response.
 					if (!base.type.is_meta_type) {
-						const Dictionary *example = structure_examples.getptr(base.type.native_type.operator String() + "::" + call->function_name);
+						const Dictionary *example = structure_examples.getptr(String(base.type.native_type) + String("::") + call->function_name);
 						if (example != nullptr) {
 							r_type = _type_from_variant(*example, p_context);
 							found = true;
@@ -2172,13 +2209,13 @@ static bool _guess_expression_type(RuztaParser::CompletionContext &p_context, co
 					}
 
 					// Look for valid indexing in other types
-					if (!found && (index.value.is_string() || index.value.get_type() == Variant::NODE_PATH)) {
+					if (!found && (index.value.get_type() == Variant::STRING || index.value.get_type() == Variant::NODE_PATH)) {
 						StringName id = index.value;
 						found = _guess_identifier_type_from_base(c, base, id, r_type);
 					} else if (!found && index.type.kind == RuztaParser::DataType::BUILTIN) {
 						GDExtensionCallError err;
 						Variant base_val;
-						Variant::construct(base.type.builtin_type, base_val, nullptr, 0, err);
+						RuztaVariantExtension::construct(base.type.builtin_type, base_val, nullptr, 0, err);
 						bool valid = false;
 						Variant res = base_val.get(index.value, &valid);
 						if (valid) {
@@ -2216,9 +2253,9 @@ static bool _guess_expression_type(RuztaParser::CompletionContext &p_context, co
 				GDExtensionCallError ce;
 				bool v1_use_value = p1.value.get_type() != Variant::NIL && p1.value.get_type() != Variant::OBJECT;
 				Variant d1;
-				Variant::construct(p1.type.builtin_type, d1, nullptr, 0, ce);
+				RuztaVariantExtension::construct(p1.type.builtin_type, d1, nullptr, 0, ce);
 				Variant d2;
-				Variant::construct(p2.type.builtin_type, d2, nullptr, 0, ce);
+				RuztaVariantExtension::construct(p2.type.builtin_type, d2, nullptr, 0, ce);
 
 				Variant v1 = (v1_use_value) ? p1.value : d1;
 				bool v2_use_value = p2.value.get_type() != Variant::NIL && p2.value.get_type() != Variant::OBJECT;
@@ -2235,7 +2272,7 @@ static bool _guess_expression_type(RuztaParser::CompletionContext &p_context, co
 
 				Variant res;
 				bool valid;
-				Variant::evaluate(op->variant_op, v1, v2, res, valid);
+				RuztaVariantExtension::evaluate(op->variant_op, v1, v2, res, valid);
 				if (!valid) {
 					found = false;
 					break;
@@ -2486,7 +2523,7 @@ static bool _guess_identifier_type(RuztaParser::CompletionContext &p_context, co
 				return true;
 			}
 		} else {
-			Ref<Script> scr = ResourceLoader::load(ScriptServer::get_global_class_path(p_identifier->name));
+			Ref<Script> scr = ResourceLoader::get_singleton()->load(ScriptServer::get_global_class_path(p_identifier->name));
 			if (scr.is_valid()) {
 				r_type = _type_from_variant(scr, p_context);
 				r_type.type.is_meta_type = true;
@@ -2503,7 +2540,7 @@ static bool _guess_identifier_type(RuztaParser::CompletionContext &p_context, co
 	}
 
 	// Check ClassDB.
-	if (ClassDB::class_exists(p_identifier->name) && ClassDB::is_class_exposed(p_identifier->name)) {
+	if (ClassDB::class_exists(p_identifier->name) /* && ClassDB::is_class_exposed(p_identifier->name) */) {
 		r_type.type.type_source = RuztaParser::DataType::ANNOTATED_EXPLICIT;
 		r_type.type.kind = RuztaParser::DataType::NATIVE;
 		r_type.type.builtin_type = Variant::OBJECT;
@@ -2678,7 +2715,7 @@ static bool _guess_identifier_type_from_base(RuztaParser::CompletionContext &p_c
 					return true;
 				}
 
-				if (ClassDB::has_enum(class_name, p_identifier)) {
+				if (ClassDB::class_has_enum(class_name, p_identifier)) {
 					r_type.type.type_source = RuztaParser::DataType::ANNOTATED_EXPLICIT;
 					r_type.type.kind = RuztaParser::DataType::ENUM;
 					r_type.type.enum_type = p_identifier;
@@ -2691,13 +2728,13 @@ static bool _guess_identifier_type_from_base(RuztaParser::CompletionContext &p_c
 				return false;
 			} break;
 			case RuztaParser::DataType::BUILTIN: {
-				if (Variant::has_builtin_method(base_type.builtin_type, p_identifier)) {
-					r_type = _callable_type_from_method_info(Variant::get_builtin_method_info(base_type.builtin_type, p_identifier));
+				if (RuztaVariantExtension::has_builtin_method(base_type.builtin_type, p_identifier)) {
+					r_type = _callable_type_from_method_info(RuztaVariantExtension::get_builtin_method_info(base_type.builtin_type, p_identifier));
 					return true;
 				} else {
 					GDExtensionCallError err;
 					Variant tmp;
-					Variant::construct(base_type.builtin_type, tmp, nullptr, 0, err);
+					RuztaVariantExtension::construct(base_type.builtin_type, tmp, nullptr, 0, err);
 
 					if (err.error != GDExtensionCallErrorType::GDEXTENSION_CALL_OK) {
 						return false;
@@ -2821,9 +2858,9 @@ static bool _guess_method_return_type_from_base(RuztaParser::CompletionContext &
 			case RuztaParser::DataType::SCRIPT: {
 				Ref<Script> scr = base_type.script_type;
 				if (scr.is_valid()) {
-					List<MethodInfo> methods;
-					scr->get_script_method_list(&methods);
-					for (const MethodInfo &mi : methods) {
+					godot::TypedArray<Dictionary> methods = scr->get_script_method_list();
+					for (const Dictionary &info : methods) {
+						MethodInfo mi = MethodInfo::from_dict(info);
 						if (mi.name == p_method) {
 							r_type = _type_from_property(mi.return_val);
 							return true;
@@ -2855,13 +2892,13 @@ static bool _guess_method_return_type_from_base(RuztaParser::CompletionContext &
 			case RuztaParser::DataType::BUILTIN: {
 				GDExtensionCallError err;
 				Variant tmp;
-				Variant::construct(base_type.builtin_type, tmp, nullptr, 0, err);
+				RuztaVariantExtension::construct(base_type.builtin_type, tmp, nullptr, 0, err);
 				if (err.error != GDExtensionCallErrorType::GDEXTENSION_CALL_OK) {
 					return false;
 				}
 
 				List<MethodInfo> methods;
-				tmp.get_method_list(&methods);
+				RuztaVariantExtension::get_method_list(&tmp, &methods);
 
 				for (const MethodInfo &mi : methods) {
 					if (mi.name == p_method) {
@@ -2923,7 +2960,7 @@ static void _find_enumeration_candidates(RuztaParser::CompletionContext &p_conte
 		}
 
 		List<StringName> enum_constants;
-		ClassDB::get_enum_constants(class_name, enum_name, &enum_constants);
+		ClassDB::class_get_enum_constants(class_name, enum_name, &enum_constants);
 		for (const StringName &E : enum_constants) {
 			String candidate = class_name + "." + E;
 			int location = _get_enum_constant_location(class_name, E);
@@ -2938,9 +2975,9 @@ static void _list_call_arguments(RuztaParser::CompletionContext &p_context, cons
 	RuztaParser::DataType base_type = p_base.type;
 	const StringName &method = p_call->function_name;
 
-	const String quote_style = EDITOR_GET("text_editor/completion/use_single_quotes") ? "'" : "\"";
-	const bool use_string_names = EDITOR_GET("text_editor/completion/add_string_name_literals");
-	const bool use_node_paths = EDITOR_GET("text_editor/completion/add_node_path_literals");
+	const String quote_style = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/completion/use_single_quotes") ? "'" : "\"";
+	const bool use_string_names = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/completion/add_string_name_literals");
+	const bool use_node_paths = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/completion/add_node_path_literals");
 
 	while (base_type.is_set() && !base_type.is_variant()) {
 		switch (base_type.kind) {
@@ -3196,7 +3233,7 @@ static void _list_call_arguments(RuztaParser::CompletionContext &p_context, cons
 						r_result.insert(option.display, option);
 					}
 				}
-				if (EDITOR_GET("text_editor/completion/complete_file_paths")) {
+				if (RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/completion/complete_file_paths")) {
 					if (p_argidx == 0 && method == StringName("change_scene_to_file") && ClassDB::is_parent_class(class_name, StringName("SceneTree"))) {
 						HashMap<String, ScriptLanguage::CodeCompletionOption> list;
 						_get_directory_contents(EditorFileSystem::get_singleton()->get_filesystem(), list, StringName("PackedScene"));
@@ -3212,14 +3249,14 @@ static void _list_call_arguments(RuztaParser::CompletionContext &p_context, cons
 			case RuztaParser::DataType::BUILTIN: {
 				if (base.get_type() == Variant::NIL) {
 					GDExtensionCallError err;
-					Variant::construct(base_type.builtin_type, base, nullptr, 0, err);
+					RuztaVariantExtension::construct(base_type.builtin_type, base, nullptr, 0, err);
 					if (err.error != GDExtensionCallErrorType::GDEXTENSION_CALL_OK) {
 						return;
 					}
 				}
 
 				List<MethodInfo> methods;
-				base.get_method_list(&methods);
+				RuztaVariantExtension::get_method_list(&base, &methods);
 				for (const MethodInfo &E : methods) {
 					if (E.name == method) {
 						r_arghint = _make_arguments_hint(E, p_argidx);
@@ -3332,7 +3369,7 @@ static bool _get_subscript_type(RuztaParser::CompletionContext &p_context, const
 
 static void _find_call_arguments(RuztaParser::CompletionContext &p_context, const RuztaParser::Node *p_call, int p_argidx, HashMap<String, ScriptLanguage::CodeCompletionOption> &r_result, bool &r_forced, String &r_arghint) {
 	if (p_call->type == RuztaParser::Node::PRELOAD) {
-		if (p_argidx == 0 && bool(EDITOR_GET("text_editor/completion/complete_file_paths"))) {
+		if (p_argidx == 0 && bool(RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/completion/complete_file_paths"))) {
 			_get_directory_contents(EditorFileSystem::get_singleton()->get_filesystem(), r_result);
 		}
 
@@ -3359,12 +3396,12 @@ static void _find_call_arguments(RuztaParser::CompletionContext &p_context, cons
 			if (method_type < Variant::VARIANT_MAX) {
 				Variant v;
 				GDExtensionCallError err;
-				Variant::construct(method_type, v, nullptr, 0, err);
+				RuztaVariantExtension::construct(method_type, v, nullptr, 0, err);
 				if (err.error != GDExtensionCallErrorType::GDEXTENSION_CALL_OK) {
 					return;
 				}
 				List<MethodInfo> methods;
-				v.get_method_list(&methods);
+				RuztaVariantExtension::get_method_list(&v, &methods);
 
 				for (MethodInfo &E : methods) {
 					if (p_argidx >= E.arguments.size()) {
@@ -3393,8 +3430,8 @@ static void _find_call_arguments(RuztaParser::CompletionContext &p_context, cons
 
 			_static = base_type.is_meta_type;
 		}
-	} else if (Variant::has_utility_function(call->function_name)) {
-		MethodInfo info = Variant::get_utility_function_info(call->function_name);
+	} else if (RuztaVariantExtension::has_utility_function(call->function_name)) {
+		MethodInfo info = RuztaVariantExtension::get_utility_function_info(call->function_name);
 		r_arghint = _make_arguments_hint(info, p_argidx);
 		return;
 	} else if (RuztaUtilityFunctions::function_exists(call->function_name)) {
@@ -3404,7 +3441,7 @@ static void _find_call_arguments(RuztaParser::CompletionContext &p_context, cons
 	} else if (RuztaParser::get_builtin_type(call->function_name) < Variant::VARIANT_MAX) {
 		// Complete constructor.
 		List<MethodInfo> constructors;
-		Variant::get_constructor_list(RuztaParser::get_builtin_type(call->function_name), &constructors);
+		RuztaVariantExtension::get_constructor_list(RuztaParser::get_builtin_type(call->function_name), &constructors);
 
 		int i = 0;
 		for (const MethodInfo &E : constructors) {
@@ -3438,7 +3475,7 @@ static void _find_call_arguments(RuztaParser::CompletionContext &p_context, cons
 }
 
 ::Error RuztaLanguage::complete_code(const String &p_code, const String &p_path, Object *p_owner, List<ScriptLanguage::CodeCompletionOption> *r_options, bool &r_forced, String &r_call_hint) {
-	const String quote_style = EDITOR_GET("text_editor/completion/use_single_quotes") ? "'" : "\"";
+	const String quote_style = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/completion/use_single_quotes") ? "'" : "\"";
 
 	RuztaParser parser;
 	RuztaAnalyzer analyzer(&parser);
@@ -3482,11 +3519,11 @@ static void _find_call_arguments(RuztaParser::CompletionContext &p_context, cons
 			// Constants.
 			{
 				List<StringName> constants;
-				Variant::get_constants_for_type(completion_context.builtin_type, &constants);
+				RuztaVariantExtension::get_constants_for_type(completion_context.builtin_type, &constants);
 				for (const StringName &E : constants) {
 					ScriptLanguage::CodeCompletionOption option(E, ScriptLanguage::CODE_COMPLETION_KIND_CONSTANT);
 					bool valid = false;
-					Variant default_value = Variant::get_constant_value(completion_context.builtin_type, E, &valid);
+					Variant default_value = RuztaVariantExtension::get_constant_value(completion_context.builtin_type, E, &valid);
 					if (valid) {
 						option.default_value = default_value;
 					}
@@ -3496,12 +3533,12 @@ static void _find_call_arguments(RuztaParser::CompletionContext &p_context, cons
 			// Methods.
 			{
 				List<StringName> methods;
-				Variant::get_builtin_method_list(completion_context.builtin_type, &methods);
+				RuztaVariantExtension::get_builtin_method_list(completion_context.builtin_type, &methods);
 				for (const StringName &E : methods) {
-					if (Variant::is_builtin_method_static(completion_context.builtin_type, E)) {
+					if (RuztaVariantExtension::is_builtin_method_static(completion_context.builtin_type, E)) {
 						ScriptLanguage::CodeCompletionOption option(E, ScriptLanguage::CODE_COMPLETION_KIND_FUNCTION);
 						if (!_guess_expecting_callable(completion_context)) {
-							if (Variant::get_builtin_method_argument_count(completion_context.builtin_type, E) > 0 || Variant::is_builtin_method_vararg(completion_context.builtin_type, E)) {
+							if (RuztaVariantExtension::get_builtin_method_argument_count(completion_context.builtin_type, E) > 0 || RuztaVariantExtension::is_builtin_method_vararg(completion_context.builtin_type, E)) {
 								option.insert_text += "(";
 							} else {
 								option.insert_text += "()";
@@ -3638,7 +3675,7 @@ static void _find_call_arguments(RuztaParser::CompletionContext &p_context, cons
 			}
 
 			const RuztaParser::TypeNode *type = static_cast<const RuztaParser::TypeNode *>(completion_context.node);
-			ERR_FAIL_INDEX_V_MSG(completion_context.type_chain_index - 1, type->type_chain.size(), Error::ERR_BUG, "Could not complete type argument with out of bounds type chain index.");
+			ERR_FAIL_INDEX_V_MSG(completion_context.type_chain_index - 1, type->type_chain.size(), ERR_BUG, "Could not complete type argument with out of bounds type chain index.");
 
 			RuztaCompletionIdentifier base;
 
@@ -3660,7 +3697,7 @@ static void _find_call_arguments(RuztaParser::CompletionContext &p_context, cons
 			r_forced = true;
 		} break;
 		case RuztaParser::COMPLETION_RESOURCE_PATH: {
-			if (EDITOR_GET("text_editor/completion/complete_file_paths")) {
+			if (RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/completion/complete_file_paths")) {
 				_get_directory_contents(EditorFileSystem::get_singleton()->get_filesystem(), options);
 				r_forced = true;
 			}
@@ -3717,7 +3754,7 @@ static void _find_call_arguments(RuztaParser::CompletionContext &p_context, cons
 				break;
 			}
 
-			const bool type_hints = EditorSettings::get_singleton()->get_setting("text_editor/completion/add_type_hints");
+			const bool type_hints = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/completion/add_type_hints");
 
 			List<MethodInfo> virtual_methods;
 			if (is_static) {
@@ -3749,7 +3786,7 @@ static void _find_call_arguments(RuztaParser::CompletionContext &p_context, cons
 					}
 					String arg = mi.arguments[i].name;
 					if (arg.contains_char(':')) {
-						arg = arg.substr(0, arg.find_char(':'));
+						arg = arg.substr(0, arg.find(String(':')));
 					}
 					method_hint += arg;
 					if (type_hints) {
@@ -3850,8 +3887,8 @@ static void _find_call_arguments(RuztaParser::CompletionContext &p_context, cons
 
 #else // !TOOLS_ENABLED
 
-Error RuztaLanguage::complete_code(const String &p_code, const String &p_path, Object *p_owner, List<ScriptLanguage::CodeCompletionOption> *r_options, bool &r_forced, String &r_call_hint) {
-	return OK;
+Dictionary RuztaLanguage::_complete_code(const String &p_code, const String &p_path, Object *p_owner) const {
+	return Dictionary();
 }
 
 #endif // TOOLS_ENABLED
@@ -3861,10 +3898,10 @@ Error RuztaLanguage::complete_code(const String &p_code, const String &p_path, O
 String RuztaLanguage::_get_indentation() const {
 #ifdef TOOLS_ENABLED
 	if (Engine::get_singleton()->is_editor_hint()) {
-		bool use_space_indentation = EDITOR_GET("text_editor/behavior/indent/type");
+		bool use_space_indentation = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/behavior/indent/type");
 
 		if (use_space_indentation) {
-			int indent_size = EDITOR_GET("text_editor/behavior/indent/size");
+			int indent_size = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/behavior/indent/size");
 			return String(" ").repeat(indent_size);
 		}
 	}
@@ -3872,7 +3909,7 @@ String RuztaLanguage::_get_indentation() const {
 	return "\t";
 }
 
-void RuztaLanguage::auto_indent_code(String &p_code, int p_from_line, int p_to_line) const {
+String RuztaLanguage::_auto_indent_code(const String &p_code, int32_t p_from_line, int32_t p_to_line) const {
 	String indent = _get_indentation();
 
 	Vector<String> lines = p_code.split("\n");
@@ -3931,7 +3968,7 @@ void RuztaLanguage::auto_indent_code(String &p_code, int p_from_line, int p_to_l
 
 #ifdef TOOLS_ENABLED
 
-static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const String &p_symbol, RuztaLanguage::LookupResult &r_result) {
+static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const String &p_symbol, Dictionary &r_result) {
 	RuztaParser::DataType base_type = p_base;
 
 	while (true) {
@@ -3960,26 +3997,26 @@ static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const
 						String doc_enum_name;
 						RuztaDocGen::doctype_from_gdtype(RuztaAnalyzer::type_from_metatype(member.get_datatype()), doc_type_name, doc_enum_name);
 
-						r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS;
-						r_result.class_name = doc_type_name;
+						r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS;
+						r_result["class_name"] = doc_type_name;
 					} break;
 					case RuztaParser::ClassNode::Member::CONSTANT:
-						r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_CONSTANT;
+						r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_CONSTANT;
 						break;
 					case RuztaParser::ClassNode::Member::FUNCTION:
-						r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_METHOD;
+						r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_METHOD;
 						break;
 					case RuztaParser::ClassNode::Member::SIGNAL:
-						r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_SIGNAL;
+						r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_SIGNAL;
 						break;
 					case RuztaParser::ClassNode::Member::VARIABLE:
-						r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_PROPERTY;
+						r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_PROPERTY;
 						break;
 					case RuztaParser::ClassNode::Member::ENUM:
-						r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_ENUM;
+						r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_ENUM;
 						break;
 					case RuztaParser::ClassNode::Member::ENUM_VALUE:
-						r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_CONSTANT;
+						r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_CONSTANT;
 						break;
 				}
 
@@ -3988,14 +4025,14 @@ static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const
 					String doc_enum_name;
 					RuztaDocGen::doctype_from_gdtype(RuztaAnalyzer::type_from_metatype(base_type), doc_type_name, doc_enum_name);
 
-					r_result.class_name = doc_type_name;
-					r_result.class_member = name;
+					r_result["class_name"] = doc_type_name;
+					r_result["class_member"] = name;
 				}
 
 				Error err = OK;
-				r_result.script = RuztaCache::get_shallow_script(base_type.script_path, err);
-				r_result.script_path = base_type.script_path;
-				r_result.location = member.get_line();
+				r_result["script"] = RuztaCache::get_shallow_script(base_type.script_path, err);
+				r_result["script_path"] = base_type.script_path;
+				r_result["location"] = member.get_line();
 				return err;
 			} break;
 			case RuztaParser::DataType::SCRIPT: {
@@ -4013,42 +4050,42 @@ static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const
 				const int line = scr->get_member_line(name);
 				if (line >= 0) {
 					bool found_type = false;
-					r_result.type = ScriptLanguage::LOOKUP_RESULT_SCRIPT_LOCATION;
+					r_result["type"] = ScriptLanguage::LOOKUP_RESULT_SCRIPT_LOCATION;
 					{
 						List<PropertyInfo> properties;
 						scr->get_script_property_list(&properties);
 						for (const PropertyInfo &property : properties) {
 							if (property.name == name && (property.usage & PROPERTY_USAGE_SCRIPT_VARIABLE)) {
 								found_type = true;
-								r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_PROPERTY;
-								r_result.class_name = scr->get_doc_class_name();
-								r_result.class_member = name;
+								r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_PROPERTY;
+								r_result["class_name"] = scr->get_doc_class_name();
+								r_result["class_member"] = name;
 								break;
 							}
 						}
 					}
 					if (!found_type) {
-						List<MethodInfo> methods;
-						scr->get_script_method_list(&methods);
-						for (const MethodInfo &method : methods) {
+						godot::TypedArray<Dictionary> methods = scr->get_script_method_list();
+						for (const Dictionary &info : methods) {
+							MethodInfo method = MethodInfo::from_dict(info);
 							if (method.name == name) {
 								found_type = true;
-								r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_METHOD;
-								r_result.class_name = scr->get_doc_class_name();
-								r_result.class_member = name;
+								r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_METHOD;
+								r_result["class_name"] = scr->get_doc_class_name();
+								r_result["class_member"] = name;
 								break;
 							}
 						}
 					}
 					if (!found_type) {
-						List<MethodInfo> signals;
-						scr->get_script_method_list(&signals);
-						for (const MethodInfo &signal : signals) {
+						godot::TypedArray<Dictionary> methods = scr->get_script_method_list();
+						for (const Dictionary &info : methods) {
+							MethodInfo signal = MethodInfo::from_dict(info);
 							if (signal.name == name) {
 								found_type = true;
-								r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_SIGNAL;
-								r_result.class_name = scr->get_doc_class_name();
-								r_result.class_member = name;
+								r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_SIGNAL;
+								r_result["class_name"] = scr->get_doc_class_name();
+								r_result["class_member"] = name;
 								break;
 							}
 						}
@@ -4059,8 +4096,8 @@ static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const
 							const Ref<Ruzta> *subclass = gds->get_subclasses().getptr(name);
 							if (subclass != nullptr) {
 								found_type = true;
-								r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS;
-								r_result.class_name = subclass->ptr()->get_doc_class_name();
+								r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS;
+								r_result["class_name"] = subclass->ptr()->get_doc_class_name();
 							}
 							// TODO: enums.
 						}
@@ -4070,15 +4107,15 @@ static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const
 						scr->get_constants(&constants);
 						if (constants.has(name)) {
 							found_type = true;
-							r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_CONSTANT;
-							r_result.class_name = scr->get_doc_class_name();
-							r_result.class_member = name;
+							r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_CONSTANT;
+							r_result["class_name"] = scr->get_doc_class_name();
+							r_result["class_member"] = name;
 						}
 					}
 
-					r_result.script = scr;
-					r_result.script_path = base_type.script_path;
-					r_result.location = line;
+					r_result["script"] = scr;
+					r_result["script_path"] = base_type.script_path;
+					r_result["location"] = line;
 					return OK;
 				}
 
@@ -4096,10 +4133,10 @@ static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const
 
 				ERR_FAIL_COND_V(!ClassDB::class_exists(class_name), ERR_BUG);
 
-				if (ClassDB::has_method(class_name, p_symbol, true)) {
-					r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_METHOD;
-					r_result.class_name = class_name;
-					r_result.class_member = p_symbol;
+				if (ClassDB::class_has_method(class_name, p_symbol, true)) {
+					r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_METHOD;
+					r_result["class_name"] = class_name;
+					r_result["class_member"] = p_symbol;
 					return OK;
 				}
 
@@ -4107,59 +4144,59 @@ static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const
 				ClassDB::get_virtual_methods(class_name, &virtual_methods, true);
 				for (const MethodInfo &E : virtual_methods) {
 					if (E.name == p_symbol) {
-						r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_METHOD;
-						r_result.class_name = class_name;
-						r_result.class_member = p_symbol;
+						r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_METHOD;
+						r_result["class_name"] = class_name;
+						r_result["class_member"] = p_symbol;
 						return OK;
 					}
 				}
 
-				if (ClassDB::has_signal(class_name, p_symbol, true)) {
-					r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_SIGNAL;
-					r_result.class_name = class_name;
-					r_result.class_member = p_symbol;
+				if (ClassDB::class_has_signal(class_name, p_symbol, true)) {
+					r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_SIGNAL;
+					r_result["class_name"] = class_name;
+					r_result["class_member"] = p_symbol;
 					return OK;
 				}
 
 				List<StringName> enums;
-				ClassDB::get_enum_list(class_name, &enums);
+				ClassDB::class_get_enum_list(class_name, &enums);
 				for (const StringName &E : enums) {
 					if (E == p_symbol) {
-						r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_ENUM;
-						r_result.class_name = class_name;
-						r_result.class_member = p_symbol;
+						r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_ENUM;
+						r_result["class_name"] = class_name;
+						r_result["class_member"] = p_symbol;
 						return OK;
 					}
 				}
 
-				if (!String(ClassDB::get_integer_constant_enum(class_name, p_symbol, true)).is_empty()) {
-					r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_CONSTANT;
-					r_result.class_name = class_name;
-					r_result.class_member = p_symbol;
+				if (!String(ClassDB::class_get_integer_constant_enum(class_name, p_symbol, true)).is_empty()) {
+					r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_CONSTANT;
+					r_result["class_name"] = class_name;
+					r_result["class_member"] = p_symbol;
 					return OK;
 				}
 
 				List<String> constants;
-				ClassDB::get_integer_constant_list(class_name, &constants, true);
+				ClassDB::class_get_integer_constant_list(class_name, &constants, true);
 				for (const String &E : constants) {
 					if (E == p_symbol) {
-						r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_CONSTANT;
-						r_result.class_name = class_name;
-						r_result.class_member = p_symbol;
+						r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_CONSTANT;
+						r_result["class_name"] = class_name;
+						r_result["class_member"] = p_symbol;
 						return OK;
 					}
 				}
 
-				if (ClassDB::has_property(class_name, p_symbol, true)) {
+				if (ClassDB_has_property(class_name, p_symbol, true)) {
 					PropertyInfo prop_info;
 					ClassDB::get_property_info(class_name, p_symbol, &prop_info, true);
 					if (prop_info.usage & PROPERTY_USAGE_INTERNAL) {
 						return ERR_CANT_RESOLVE;
 					}
 
-					r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_PROPERTY;
-					r_result.class_name = class_name;
-					r_result.class_member = p_symbol;
+					r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_PROPERTY;
+					r_result["class_name"] = class_name;
+					r_result["class_member"] = p_symbol;
 					return OK;
 				}
 
@@ -4172,32 +4209,32 @@ static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const
 			} break;
 			case RuztaParser::DataType::BUILTIN: {
 				if (base_type.is_meta_type) {
-					if (Variant::has_enum(base_type.builtin_type, p_symbol)) {
-						r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_ENUM;
-						r_result.class_name = Variant::get_type_name(base_type.builtin_type);
-						r_result.class_member = p_symbol;
+					if (RuztaVariantExtension::has_enum(base_type.builtin_type, p_symbol)) {
+						r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_ENUM;
+						r_result["class_name"] = Variant::get_type_name(base_type.builtin_type);
+						r_result["class_member"] = p_symbol;
 						return OK;
 					}
 
-					if (Variant::has_constant(base_type.builtin_type, p_symbol)) {
-						r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_CONSTANT;
-						r_result.class_name = Variant::get_type_name(base_type.builtin_type);
-						r_result.class_member = p_symbol;
+					if (RuztaVariantExtension::has_constant(base_type.builtin_type, p_symbol)) {
+						r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_CONSTANT;
+						r_result["class_name"] = Variant::get_type_name(base_type.builtin_type);
+						r_result["class_member"] = p_symbol;
 						return OK;
 					}
 				} else {
-					if (Variant::has_member(base_type.builtin_type, p_symbol)) {
-						r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_PROPERTY;
-						r_result.class_name = Variant::get_type_name(base_type.builtin_type);
-						r_result.class_member = p_symbol;
+					if (RuztaVariantExtension::has_member(base_type.builtin_type, p_symbol)) {
+						r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_PROPERTY;
+						r_result["class_name"] = Variant::get_type_name(base_type.builtin_type);
+						r_result["class_member"] = p_symbol;
 						return OK;
 					}
 				}
 
-				if (Variant::has_builtin_method(base_type.builtin_type, p_symbol)) {
-					r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_METHOD;
-					r_result.class_name = Variant::get_type_name(base_type.builtin_type);
-					r_result.class_member = p_symbol;
+				if (RuztaVariantExtension::has_builtin_method(base_type.builtin_type, p_symbol)) {
+					r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_METHOD;
+					r_result["class_name"] = Variant::get_type_name(base_type.builtin_type);
+					r_result["class_member"] = p_symbol;
 					return OK;
 				}
 
@@ -4210,29 +4247,29 @@ static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const
 						String doc_enum_name;
 						RuztaDocGen::doctype_from_gdtype(RuztaAnalyzer::type_from_metatype(base_type), doc_type_name, doc_enum_name);
 
-						if (CoreConstants::is_global_enum(doc_enum_name)) {
-							r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_CONSTANT;
-							r_result.class_name = "@GlobalScope";
-							r_result.class_member = p_symbol;
+						if (ClassDB::class_has_integer_constant("@GlobalScope", doc_enum_name)) { // Replaced CoreConstants::is_global_enum
+							r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_CONSTANT;
+							r_result["class_name"] = "@GlobalScope";
+							r_result["class_member"] = p_symbol;
 							return OK;
 						} else {
-							const int dot_pos = doc_enum_name.rfind_char('.');
+							const int dot_pos = doc_enum_name.rfind(String('.'));
 							if (dot_pos >= 0) {
 								Error err = OK;
-								r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_CONSTANT;
+								r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_CONSTANT;
 								if (base_type.class_type != nullptr) {
 									// For script enums the value isn't accessible as class constant so we need the full enum name.
-									r_result.class_name = doc_enum_name;
-									r_result.class_member = p_symbol;
-									r_result.script = RuztaCache::get_shallow_script(base_type.script_path, err);
-									r_result.script_path = base_type.script_path;
+									r_result["class_name"] = doc_enum_name;
+									r_result["class_member"] = p_symbol;
+									r_result["script"] = RuztaCache::get_shallow_script(base_type.script_path, err);
+									r_result["script_path"] = base_type.script_path;
 									const String enum_name = doc_enum_name.substr(dot_pos + 1);
 									if (base_type.class_type->has_member(enum_name)) {
 										const RuztaParser::ClassNode::Member member = base_type.class_type->get_member(enum_name);
 										if (member.type == RuztaParser::ClassNode::Member::ENUM) {
 											for (const RuztaParser::EnumNode::Value &value : member.m_enum->values) {
 												if (value.identifier->name == p_symbol) {
-													r_result.location = value.line;
+													r_result["location"] = value.line;
 													break;
 												}
 											}
@@ -4240,23 +4277,23 @@ static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const
 									}
 								} else if (base_type.script_type.is_valid()) {
 									// For script enums the value isn't accessible as class constant so we need the full enum name.
-									r_result.class_name = doc_enum_name;
-									r_result.class_member = p_symbol;
-									r_result.script = base_type.script_type;
-									r_result.script_path = base_type.script_path;
+									r_result["class_name"] = doc_enum_name;
+									r_result["class_member"] = p_symbol;
+									r_result["script"] = base_type.script_type;
+									r_result["script_path"] = base_type.script_path;
 									// TODO: Find a way to obtain enum value location for a script
-									r_result.location = base_type.script_type->get_member_line(doc_enum_name.substr(dot_pos + 1));
+									r_result["location"] = base_type.script_type->get_member_line(doc_enum_name.substr(dot_pos + 1));
 								} else {
-									r_result.class_name = doc_enum_name.left(dot_pos);
-									r_result.class_member = p_symbol;
+									r_result["class_name"] = doc_enum_name.left(dot_pos);
+									r_result["class_member"] = p_symbol;
 								}
 								return err;
 							}
 						}
-					} else if (Variant::has_builtin_method(Variant::DICTIONARY, p_symbol)) {
-						r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_METHOD;
-						r_result.class_name = "Dictionary";
-						r_result.class_member = p_symbol;
+					} else if (RuztaVariantExtension::has_builtin_method(Variant::DICTIONARY, p_symbol)) {
+						r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_METHOD;
+						r_result["class_name"] = "Dictionary";
+						r_result["class_member"] = p_symbol;
 						return OK;
 					}
 				}
@@ -4286,31 +4323,33 @@ static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const
 	return ERR_CANT_RESOLVE;
 }
 
-::Error RuztaLanguage::lookup_code(const String &p_code, const String &p_symbol, const String &p_path, Object *p_owner, LookupResult &r_result) {
+Dictionary RuztaLanguage::_lookup_code(const String &p_code, const String &p_symbol, const String &p_path, Object *p_owner) const {
+	Dictionary r_result;
+
 	// Before parsing, try the usual stuff.
 	if (ClassDB::class_exists(p_symbol)) {
-		r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS;
-		r_result.class_name = p_symbol;
-		return OK;
+		r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS;
+		r_result["class_name"] = p_symbol;
+		return r_result;
 	}
 
-	if (Variant::get_type_by_name(p_symbol) < Variant::VARIANT_MAX) {
-		r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS;
-		r_result.class_name = p_symbol;
-		return OK;
+	if (RuztaVariantExtension::get_type_by_name(p_symbol) < Variant::VARIANT_MAX) {
+		r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS;
+		r_result["class_name"] = p_symbol;
+		return r_result;
 	}
 
 	if (p_symbol == "Variant") {
-		r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS;
-		r_result.class_name = "Variant";
-		return OK;
+		r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS;
+		r_result["class_name"] = "Variant";
+		return r_result;
 	}
 
 	if (p_symbol == "PI" || p_symbol == "TAU" || p_symbol == "INF" || p_symbol == "NAN") {
-		r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_CONSTANT;
-		r_result.class_name = "@Ruzta";
-		r_result.class_member = p_symbol;
-		return OK;
+		r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_CONSTANT;
+		r_result["class_name"] = "@Ruzta";
+		r_result["class_member"] = p_symbol;
+		return r_result;
 	}
 
 	RuztaParser parser;
@@ -4324,10 +4363,10 @@ static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const
 		// Need special checks for `assert` and `preload` as they are technically
 		// keywords, so are not registered in `RuztaUtilityFunctions`.
 		if (RuztaUtilityFunctions::function_exists(p_symbol) || p_symbol == "assert" || p_symbol == "preload") {
-			r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_METHOD;
-			r_result.class_name = "@Ruzta";
-			r_result.class_member = p_symbol;
-			return OK;
+			r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_METHOD;
+			r_result["class_name"] = "@Ruzta";
+			r_result["class_member"] = p_symbol;
+			return r_result;
 		}
 	}
 
@@ -4338,25 +4377,25 @@ static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const
 		StringName class_name = context.current_class->extends[0]->name;
 
 		bool success = false;
-		ClassDB::get_integer_constant(class_name, p_symbol, &success);
+		ClassDB::class_get_integer_constant(class_name, p_symbol, &success);
 		if (success) {
-			r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_CONSTANT;
-			r_result.class_name = class_name;
-			r_result.class_member = p_symbol;
-			return OK;
+			r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_CONSTANT;
+			r_result["class_name"] = class_name;
+			r_result["class_member"] = p_symbol;
+			return r_result;
 		}
 		do {
 			List<StringName> enums;
-			ClassDB::get_enum_list(class_name, &enums, true);
+			ClassDB::class_get_enum_list(class_name, &enums, true);
 			for (const StringName &enum_name : enums) {
 				if (enum_name == p_symbol) {
-					r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_ENUM;
-					r_result.class_name = class_name;
-					r_result.class_member = p_symbol;
-					return OK;
+					r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_ENUM;
+					r_result["class_name"] = class_name;
+					r_result["class_member"] = p_symbol;
+					return r_result;
 				}
 			}
-			class_name = ClassDB::get_parent_class_nocheck(class_name);
+			class_name = ClassDB::get_parent_class(class_name);
 		} while (class_name != StringName());
 	}
 
@@ -4368,16 +4407,16 @@ static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const
 		}
 		do {
 			List<StringName> enums;
-			ClassDB::get_enum_list(class_name, &enums, true);
+			ClassDB::class_get_enum_list(class_name, &enums, true);
 			for (const StringName &enum_name : enums) {
 				if (enum_name == p_symbol) {
-					r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_ENUM;
-					r_result.class_name = class_name;
-					r_result.class_member = p_symbol;
-					return OK;
+					r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_ENUM;
+					r_result["class_name"] = class_name;
+					r_result["class_member"] = p_symbol;
+					return r_result;
 				}
 			}
-			class_name = ClassDB::get_parent_class_nocheck(class_name);
+			class_name = ClassDB::get_parent_class(class_name);
 		} while (class_name != StringName());
 	}
 
@@ -4390,13 +4429,13 @@ static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const
 			base_type.builtin_type = context.builtin_type;
 			base_type.is_meta_type = true;
 			if (_lookup_symbol_from_base(base_type, p_symbol, r_result) == OK) {
-				return OK;
+				return r_result;
 			}
 		} break;
 		case RuztaParser::COMPLETION_SUPER: {
 			if (context.current_class && context.current_function) {
 				if (_lookup_symbol_from_base(context.current_class->base_type, context.current_function->info.name, r_result) == OK) {
-					return OK;
+					return r_result;
 				}
 			}
 		} break;
@@ -4427,50 +4466,53 @@ static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const
 
 						switch (local.type) {
 							case RuztaParser::SuiteNode::Local::UNDEFINED:
-								return ERR_BUG;
+								return Dictionary();
 							case RuztaParser::SuiteNode::Local::CONSTANT:
-								r_result.type = ScriptLanguage::LOOKUP_RESULT_LOCAL_CONSTANT;
-								r_result.description = local.constant->doc_data.description;
-								r_result.is_deprecated = local.constant->doc_data.is_deprecated;
-								r_result.deprecated_message = local.constant->doc_data.deprecated_message;
-								r_result.is_experimental = local.constant->doc_data.is_experimental;
-								r_result.experimental_message = local.constant->doc_data.experimental_message;
+								r_result["type"] = ScriptLanguage::LOOKUP_RESULT_LOCAL_CONSTANT;
+								r_result["description"] = local.constant->doc_data.description;
+								r_result["is_deprecated"] = local.constant->doc_data.is_deprecated;
+								r_result["deprecated_message"] = local.constant->doc_data.deprecated_message;
+								r_result["is_experimental"] = local.constant->doc_data.is_experimental;
+								r_result["experimental_message"] = local.constant->doc_data.experimental_message;
 								if (local.constant->initializer != nullptr) {
-									r_result.value = RuztaDocGen::docvalue_from_expression(local.constant->initializer);
+									r_result["value"] = RuztaDocGen::docvalue_from_expression(local.constant->initializer);
 								}
 								break;
 							case RuztaParser::SuiteNode::Local::VARIABLE:
-								r_result.type = ScriptLanguage::LOOKUP_RESULT_LOCAL_VARIABLE;
-								r_result.description = local.variable->doc_data.description;
-								r_result.is_deprecated = local.variable->doc_data.is_deprecated;
-								r_result.deprecated_message = local.variable->doc_data.deprecated_message;
-								r_result.is_experimental = local.variable->doc_data.is_experimental;
-								r_result.experimental_message = local.variable->doc_data.experimental_message;
+								r_result["type"] = ScriptLanguage::LOOKUP_RESULT_LOCAL_VARIABLE;
+								r_result["description"] = local.variable->doc_data.description;
+								r_result["is_deprecated"] = local.variable->doc_data.is_deprecated;
+								r_result["deprecated_message"] = local.variable->doc_data.deprecated_message;
+								r_result["is_experimental"] = local.variable->doc_data.is_experimental;
+								r_result["experimental_message"] = local.variable->doc_data.experimental_message;
 								if (local.variable->initializer != nullptr) {
-									r_result.value = RuztaDocGen::docvalue_from_expression(local.variable->initializer);
+									r_result["value"] = RuztaDocGen::docvalue_from_expression(local.variable->initializer);
 								}
 								break;
 							case RuztaParser::SuiteNode::Local::PARAMETER:
 							case RuztaParser::SuiteNode::Local::FOR_VARIABLE:
 							case RuztaParser::SuiteNode::Local::PATTERN_BIND:
-								r_result.type = ScriptLanguage::LOOKUP_RESULT_LOCAL_VARIABLE;
+								r_result["type"] = ScriptLanguage::LOOKUP_RESULT_LOCAL_VARIABLE;
 								break;
 						}
 
-						RuztaDocGen::doctype_from_gdtype(local.get_datatype(), r_result.doc_type, r_result.enumeration);
+						String doc_type, enumeration;
+						RuztaDocGen::doctype_from_gdtype(local.get_datatype(), doc_type, enumeration);
+						r_result["doc_type"] = doc_type;
+						r_result["enumeration"] = enumeration;
 
 						Error err = OK;
-						r_result.script = RuztaCache::get_shallow_script(base_type.script_path, err);
-						r_result.script_path = base_type.script_path;
-						r_result.location = local.start_line;
-						return err;
+						r_result["script"] = RuztaCache::get_shallow_script(base_type.script_path, err);
+						r_result["script_path"] = base_type.script_path;
+						r_result["location"] = local.start_line;
+						return r_result;
 					}
 					suite = suite->parent_block;
 				}
 			}
 
 			if (_lookup_symbol_from_base(base_type, p_symbol, r_result) == OK) {
-				return OK;
+				return r_result;
 			}
 
 			if (!is_function) {
@@ -4484,28 +4526,28 @@ static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const
 						}
 
 						if (FileAccess::exists(scr_path)) {
-							r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS;
-							r_result.class_name = p_symbol;
-							r_result.script = ResourceLoader::load(scr_path);
-							r_result.script_path = scr_path;
-							r_result.location = 0;
-							return OK;
+							r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS;
+							r_result["class_name"] = p_symbol;
+							r_result["script"] = ResourceLoader::get_singleton()->load(scr_path);
+							r_result["script_path"] = scr_path;
+							r_result["location"] = 0;
+							return r_result;
 						}
 					}
 				}
 
 				if (ScriptServer::is_global_class(p_symbol)) {
 					const String scr_path = ScriptServer::get_global_class_path(p_symbol);
-					const Ref<Script> scr = ResourceLoader::load(scr_path);
+					const Ref<Script> scr = ResourceLoader::get_singleton()->load(scr_path);
 					if (scr.is_null()) {
-						return ERR_BUG;
+						return Dictionary();
 					}
-					r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS;
-					r_result.class_name = scr->get_doc_class_name();
-					r_result.script = scr;
-					r_result.script_path = scr_path;
-					r_result.location = 0;
-					return OK;
+					r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS;
+					r_result["class_name"] = scr->get_doc_class_name();
+					r_result["script"] = scr;
+					r_result["script_path"] = scr_path;
+					r_result["location"] = 0;
+					return r_result;
 				}
 
 				const HashMap<StringName, int> &global_map = RuztaLanguage::get_singleton()->get_global_map();
@@ -4515,13 +4557,13 @@ static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const
 						const Object *obj = value;
 						if (obj) {
 							if (Object::cast_to<RuztaNativeClass>(obj)) {
-								r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS;
-								r_result.class_name = Object::cast_to<RuztaNativeClass>(obj)->get_name();
+								r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS;
+								r_result["class_name"] = Object::cast_to<RuztaNativeClass>(obj)->get_name();
 							} else {
-								r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS;
-								r_result.class_name = obj->get_class();
+								r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS;
+								r_result["class_name"] = obj->get_class();
 							}
-							return OK;
+							return r_result;
 						}
 					}
 				}
@@ -4540,11 +4582,11 @@ static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const
 					return OK;
 				}
 
-				if (Variant::has_utility_function(p_symbol)) {
-					r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_METHOD;
-					r_result.class_name = "@GlobalScope";
-					r_result.class_member = p_symbol;
-					return OK;
+				if (RuztaVariantExtension::has_utility_function(p_symbol)) {
+					r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_METHOD;
+					r_result["class_name"] = "@GlobalScope";
+					r_result["class_member"] = p_symbol;
+					return r_result;
 				}
 			}
 		} break;
@@ -4565,7 +4607,7 @@ static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const
 			}
 
 			if (_lookup_symbol_from_base(base.type, p_symbol, r_result) == OK) {
-				return OK;
+				return r_result;
 			}
 		} break;
 		case RuztaParser::COMPLETION_TYPE_ATTRIBUTE: {
@@ -4592,14 +4634,14 @@ static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const
 			}
 
 			if (_lookup_symbol_from_base(base_type, p_symbol, r_result) == OK) {
-				return OK;
+				return r_result;
 			}
 		} break;
 		case RuztaParser::COMPLETION_OVERRIDE_METHOD: {
 			RuztaParser::DataType base_type = context.current_class->base_type;
 
 			if (_lookup_symbol_from_base(base_type, p_symbol, r_result) == OK) {
-				return OK;
+				return r_result;
 			}
 		} break;
 		case RuztaParser::COMPLETION_PROPERTY_DECLARATION_OR_TYPE:
@@ -4608,23 +4650,23 @@ static Error _lookup_symbol_from_base(const RuztaParser::DataType &p_base, const
 			RuztaParser::DataType base_type = context.current_class->get_datatype();
 
 			if (_lookup_symbol_from_base(base_type, p_symbol, r_result) == OK) {
-				return OK;
+				return r_result;
 			}
 		} break;
 		case RuztaParser::COMPLETION_ANNOTATION: {
 			const String annotation_symbol = "@" + p_symbol;
 			if (parser.annotation_exists(annotation_symbol)) {
-				r_result.type = ScriptLanguage::LOOKUP_RESULT_CLASS_ANNOTATION;
-				r_result.class_name = "@Ruzta";
-				r_result.class_member = annotation_symbol;
-				return OK;
+				r_result["type"] = ScriptLanguage::LOOKUP_RESULT_CLASS_ANNOTATION;
+				r_result["class_name"] = "@Ruzta";
+				r_result["class_member"] = annotation_symbol;
+				return r_result;
 			}
 		} break;
 		default: {
 		}
 	}
 
-	return ERR_CANT_RESOLVE;
+	return Dictionary();
 }
 
 #endif // TOOLS_ENABLED

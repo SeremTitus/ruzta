@@ -1,11 +1,13 @@
 /**************************************************************************/
-/*  ruzta_cache.h                                                      */
+/*  ruzta_cache.h                                                         */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -30,20 +32,23 @@
 
 #pragma once
 
-#include "ruzta.h"
+#include <godot_cpp/classes/ref_counted.hpp>  // original: core/object/ref_counted.h
 
-#include <godot_cpp/classes/ref_counted.hpp> // original: core/object/ref_counted.h
+#include "ruzta.h"
 // TODO: #include "core/os/safe_binary_mutex.h" // original: core/os/safe_binary_mutex.h
-#include <godot_cpp/templates/hash_map.hpp> // original: core/templates/hash_map.h
-#include <godot_cpp/templates/hash_set.hpp> // original: core/templates/hash_set.h
+#include <godot_cpp/templates/hash_map.hpp>	 // original: core/templates/hash_map.h
+#include <godot_cpp/templates/hash_set.hpp>	 // original: core/templates/hash_set.h
 
 class RuztaAnalyzer;
 class RuztaParser;
 
 class RuztaParserRef : public RefCounted {
-	GDSOFTCLASS(RuztaParserRef, RefCounted);
+	GDCLASS(RuztaParserRef, RefCounted);
 
-public:
+protected:
+	static void _bind_methods() {}
+
+   public:
 	enum Status {
 		EMPTY,
 		PARSED,
@@ -52,9 +57,9 @@ public:
 		FULLY_SOLVED,
 	};
 
-private:
-	RuztaParser *parser = nullptr;
-	RuztaAnalyzer *analyzer = nullptr;
+   private:
+	RuztaParser* parser = nullptr;
+	RuztaAnalyzer* analyzer = nullptr;
 	Status status = EMPTY;
 	Error result = OK;
 	String path;
@@ -65,12 +70,12 @@ private:
 	friend class RuztaCache;
 	friend class Ruzta;
 
-public:
+   public:
 	Status get_status() const;
 	String get_path() const;
 	uint32_t get_source_hash() const;
-	RuztaParser *get_parser();
-	RuztaAnalyzer *get_analyzer();
+	RuztaParser* get_parser();
+	RuztaAnalyzer* get_analyzer();
 	Error raise_status(Status p_new_status);
 	void clear();
 
@@ -80,7 +85,7 @@ public:
 
 class RuztaCache {
 	// String key is full path.
-	HashMap<String, RuztaParserRef *> parser_map;
+	HashMap<String, RuztaParserRef*> parser_map;
 	HashMap<String, Vector<ObjectID>> abandoned_parser_map;
 	HashMap<String, Ref<Ruzta>> shallow_ruzta_cache;
 	HashMap<String, Ref<Ruzta>> full_ruzta_cache;
@@ -92,31 +97,30 @@ class RuztaCache {
 	friend class RuztaParserRef;
 	friend class RuztaInstance;
 
-	static RuztaCache *singleton;
+	static RuztaCache* singleton;
 
 	bool cleared = false;
 
-public:
+   public:
 	static const int BINARY_MUTEX_TAG = 2;
 
-private:
-	static SafeBinaryMutex<BINARY_MUTEX_TAG> mutex;
-	friend SafeBinaryMutex<BINARY_MUTEX_TAG> &_get_ruzta_cache_mutex();
+   private:
+	static Mutex mutex;
 
-public:
-	static void move_script(const String &p_from, const String &p_to);
-	static void remove_script(const String &p_path);
-	static Ref<RuztaParserRef> get_parser(const String &p_path, RuztaParserRef::Status status, Error &r_error, const String &p_owner = String());
-	static bool has_parser(const String &p_path);
-	static void remove_parser(const String &p_path);
-	static String get_source_code(const String &p_path);
-	static Vector<uint8_t> get_binary_tokens(const String &p_path);
-	static Ref<Ruzta> get_shallow_script(const String &p_path, Error &r_error, const String &p_owner = String());
-	static Ref<Ruzta> get_full_script(const String &p_path, Error &r_error, const String &p_owner = String(), bool p_update_from_disk = false);
-	static Ref<Ruzta> get_cached_script(const String &p_path);
-	static Error finish_compiling(const String &p_owner);
+   public:
+	static void move_script(const String& p_from, const String& p_to);
+	static void remove_script(const String& p_path);
+	static Ref<RuztaParserRef> get_parser(const String& p_path, RuztaParserRef::Status status, Error& r_error, const String& p_owner = String());
+	static bool has_parser(const String& p_path);
+	static void remove_parser(const String& p_path);
+	static String get_source_code(const String& p_path);
+	static Vector<uint8_t> get_binary_tokens(const String& p_path);
+	static Ref<Ruzta> get_shallow_script(const String& p_path, Error& r_error, const String& p_owner = String());
+	static Ref<Ruzta> get_full_script(const String& p_path, Error& r_error, const String& p_owner = String(), bool p_update_from_disk = false);
+	static Ref<Ruzta> get_cached_script(const String& p_path);
+	static Error finish_compiling(const String& p_owner);
 	static void add_static_script(Ref<Ruzta> p_script);
-	static void remove_static_script(const String &p_fqcn);
+	static void remove_static_script(const String& p_fqcn);
 
 	static void clear();
 

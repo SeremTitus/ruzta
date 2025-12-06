@@ -1,11 +1,13 @@
 /**************************************************************************/
-/*  ruzta_cache.cpp                                                    */
+/*  ruzta_cache.cpp                                                       */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                                RUZTA                                   */
+/*                    https://seremtitus.co.ke/ruzta                      */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+//* Copyright (c) 2025-present Ruzta contributors (see AUTHORS.md).        */
+/* Copyright (c) 2014-present Godot Engine contributors                   */
+/*                                             (see OG_AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
@@ -37,6 +39,7 @@
 
 #include <godot_cpp/classes/file_access.hpp> // original: core/io/file_access.h
 #include <godot_cpp/templates/vector.hpp> // original: core/templates/vector.h
+#include <godot_cpp/core/mutex_lock.hpp> // original:
 
 RuztaParserRef::Status RuztaParserRef::get_status() const {
 	return status;
@@ -75,8 +78,8 @@ Error RuztaParserRef::raise_status(Status p_new_status) {
 				// It's ok if its the first thing done here.
 				get_parser()->clear();
 				status = PARSED;
-				String remapped_path = ResourceLoader::path_remap(path);
-				if (remapped_path.has_extension("gdc")) {
+				String remapped_path = ResourceLoader::get_singleton()->path_remap(path);
+				if (remapped_path.get_extension() == String("rzc")) {
 					Vector<uint8_t> tokens = RuztaCache::get_binary_tokens(remapped_path);
 					source_hash = hash_djb2_buffer(tokens.ptr(), tokens.size());
 					result = get_parser()->parse_binary(tokens, path);
@@ -144,13 +147,7 @@ RuztaParserRef::~RuztaParserRef() {
 
 RuztaCache *RuztaCache::singleton = nullptr;
 
-SafeBinaryMutex<RuztaCache::BINARY_MUTEX_TAG> &_get_ruzta_cache_mutex() {
-	return RuztaCache::mutex;
-}
-
-template <>
-thread_local SafeBinaryMutex<RuztaCache::BINARY_MUTEX_TAG>::TLSData SafeBinaryMutex<RuztaCache::BINARY_MUTEX_TAG>::tls_data(_get_ruzta_cache_mutex());
-SafeBinaryMutex<RuztaCache::BINARY_MUTEX_TAG> RuztaCache::mutex;
+Mutex RuztaCache::mutex;
 
 void RuztaCache::move_script(const String &p_from, const String &p_to) {
 	if (singleton == nullptr || p_from == p_to) {
@@ -223,7 +220,7 @@ Ref<RuztaParserRef> RuztaCache::get_parser(const String &p_path, RuztaParserRef:
 			return ref;
 		}
 	} else {
-		String remapped_path = ResourceLoader::path_remap(p_path);
+		String remapped_path = ResourceLoader::get_singleton()->path_remap(p_path);
 		if (!FileAccess::exists(remapped_path)) {
 			r_error = ERR_FILE_NOT_FOUND;
 			return ref;
@@ -248,7 +245,7 @@ void RuztaCache::remove_parser(const String &p_path) {
 	if (singleton->parser_map.has(p_path)) {
 		RuztaParserRef *parser_ref = singleton->parser_map[p_path];
 		parser_ref->abandoned = true;
-		singleton->abandoned_parser_map[p_path].push_back(parser_ref->get_instance_id());
+		singleton->abandoned_parser_map[p_path].push_back(ObjectID(parser_ref->get_instance_id()));
 	}
 
 	// Can't clear the parser because some other parser might be currently using it in the chain of calls.
@@ -264,8 +261,8 @@ void RuztaCache::remove_parser(const String &p_path) {
 
 String RuztaCache::get_source_code(const String &p_path) {
 	Vector<uint8_t> source_file;
-	Error err;
-	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ, &err);
+	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
+	Error err = FileAccess::get_open_error(); 
 	ERR_FAIL_COND_V(err, "");
 
 	uint64_t len = f->get_length();
@@ -275,7 +272,7 @@ String RuztaCache::get_source_code(const String &p_path) {
 	source_file.write[len] = 0;
 
 	String source;
-	if (source.append_utf8((const char *)source_file.ptr(), len) != OK) {
+	if (source.utf8((const char *)source_file.ptr(), len) != OK) {
 		ERR_FAIL_V_MSG("", "Script '" + p_path + "' contains invalid unicode (UTF-8), so it was not loaded. Please ensure that scripts are saved in valid UTF-8 unicode.");
 	}
 	return source;
@@ -283,8 +280,8 @@ String RuztaCache::get_source_code(const String &p_path) {
 
 Vector<uint8_t> RuztaCache::get_binary_tokens(const String &p_path) {
 	Vector<uint8_t> buffer;
-	Error err = OK;
-	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ, &err);
+	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
+	Error err = FileAccess::get_open_error(); 
 	ERR_FAIL_COND_V_MSG(err != OK, buffer, "Failed to open binary Ruzta file '" + p_path + "'.");
 
 	uint64_t len = f->get_length();
@@ -308,12 +305,12 @@ Ref<Ruzta> RuztaCache::get_shallow_script(const String &p_path, Error &r_error, 
 		return singleton->shallow_ruzta_cache[p_path];
 	}
 
-	const String remapped_path = ResourceLoader::path_remap(p_path);
+	const String remapped_path = ResourceLoader::get_singleton()->path_remap(p_path);
 
 	Ref<Ruzta> script;
 	script.instantiate();
 	script->set_path(p_path, true);
-	if (remapped_path.has_extension("gdc")) {
+	if (remapped_path.get_extension() == String("rzc")) {
 		Vector<uint8_t> buffer = get_binary_tokens(remapped_path);
 		if (buffer.is_empty()) {
 			r_error = ERR_FILE_CANT_READ;
@@ -361,10 +358,10 @@ Ref<Ruzta> RuztaCache::get_full_script(const String &p_path, Error &r_error, con
 		}
 	}
 
-	const String remapped_path = ResourceLoader::path_remap(p_path);
+	const String remapped_path = ResourceLoader::get_singleton()->path_remap(p_path);
 
 	if (p_update_from_disk) {
-		if (remapped_path.has_extension("gdc")) {
+		if (remapped_path.get_extension() == String("rzc")) {
 			Vector<uint8_t> buffer = get_binary_tokens(remapped_path);
 			if (buffer.is_empty()) {
 				r_error = ERR_FILE_CANT_READ;
