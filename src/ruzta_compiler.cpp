@@ -446,7 +446,7 @@ RuztaCodeGenerator::Address RuztaCompiler::_parse_expression(CodeGen &codegen, E
 					}
 
 					// Try global classes.
-					if (ScriptServer::is_global_class(identifier)) {
+					if (RuztaScriptServer::is_global_class(identifier)) {
 						const RuztaParser::ClassNode *class_node = codegen.class_node;
 						while (class_node->outer) {
 							class_node = class_node->outer;
@@ -457,8 +457,8 @@ RuztaCodeGenerator::Address RuztaCompiler::_parse_expression(CodeGen &codegen, E
 						if (class_node->identifier && class_node->identifier->name == identifier) {
 							res = Ref<Ruzta>(main_script);
 						} else {
-							String global_class_path = ScriptServer::get_global_class_path(identifier);
-							if (ResourceLoader::get_singleton()->get_resource_type(global_class_path) == "Ruzta") {
+							String global_class_path = RuztaScriptServer::get_global_class_path(identifier);
+							if (global_class_path.get_extension() == "rz" || global_class_path.get_extension() == "rzc") {
 								Error err = OK;
 								// Should not need to pass p_owner since analyzer will already have done it.
 								res = RuztaCache::get_shallow_script(global_class_path, err);

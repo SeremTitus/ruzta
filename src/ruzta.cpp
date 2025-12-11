@@ -40,6 +40,7 @@
 #include "ruzta_rpc_callable.h"
 #include "ruzta_tokenizer_buffer.h"
 #include "ruzta_warning.h"
+#include "ruzta_script_server.h"
 
 #ifdef TOOLS_ENABLED
 #include "editor/ruzta_docgen.h"
@@ -903,8 +904,8 @@ void* Ruzta::_instance_create(Object* p_this) const {
 void* Ruzta::_placeholder_instance_create(Object* p_this) const {
 #ifdef TOOLS_ENABLED
 	PlaceHolderScriptInstance* si = memnew(PlaceHolderScriptInstance(RuztaLanguage::get_singleton(), Ref<Script>(this), p_this));
-	placeholders.insert(si);
-	_update_exports(nullptr, false, si);
+	// placeholders.insert(si);
+	// _update_exports(nullptr, false, si);
 	return si;
 #else
 	return nullptr;
@@ -993,7 +994,7 @@ Error Ruzta::_reload(bool p_keep_state) {
 		}
 	}
 
-	bool can_run = ScriptServer::is_scripting_enabled() || is_tool();
+	bool can_run = RuztaScriptServer::is_scripting_enabled() || is_tool();
 
 #ifdef TOOLS_ENABLED
 	if (p_keep_state && can_run && _is_valid()) {
@@ -1036,7 +1037,7 @@ Error Ruzta::_reload(bool p_keep_state) {
 		return ERR_PARSE_ERROR;
 	}
 
-	can_run = ScriptServer::is_scripting_enabled() || parser.is_tool();
+	can_run = RuztaScriptServer::is_scripting_enabled() || parser.is_tool();
 
 	RuztaCompiler compiler;
 	err = compiler.compile(&parser, this, p_keep_state);
@@ -1067,7 +1068,7 @@ Error Ruzta::_reload(bool p_keep_state) {
 		if (EngineDebugger::get_singleton()->is_active()) {
 			Vector<RuztaLanguage::StackInfo> si;
 			// TODO: Provide the script function as the first argument.
-			EngineDebugger::get_singleton()->get_script_debugger()->send_error("Ruzta::reload", get_script_path(), warning.start_line, warning.get_name(), warning.get_message(), false, ERR_HANDLER_WARNING, si);
+			// EngineDebugger::get_singleton()->get_script_debugger()->send_error("Ruzta::reload", get_script_path(), warning.start_line, warning.get_name(), warning.get_message(), false, ERR_HANDLER_WARNING, si);
 		}
 	}
 #endif
@@ -1124,6 +1125,10 @@ Dictionary Ruzta::_get_method_info(const StringName& p_method) const {
 		return {};
 	}
 	return E->value->get_method_info().operator Dictionary();
+}
+
+ScriptLanguage* Ruzta::_get_language() const { 
+	return RuztaLanguage::get_singleton();
 }
 
 bool Ruzta::_has_script_signal(const StringName& p_signal) const {
@@ -1481,7 +1486,7 @@ RBSet<Ruzta*> Ruzta::get_must_clear_dependencies() {
 	}
 
 	for (Ruzta* E : dependencies) {
-		if (cant_clear.has(E) || ScriptServer::is_global_class(E->get_fully_qualified_name())) {
+		if (cant_clear.has(E) || RuztaScriptServer::is_global_class(E->get_fully_qualified_name())) {
 			continue;
 		}
 		must_clear_dependencies.insert(E);
@@ -1544,7 +1549,7 @@ String Ruzta::get_script_path() const {
 }
 
 Error Ruzta::load_source_code(const String& p_path) {
-	if (p_path.is_empty() || p_path.begins_with("ruzta://") || ResourceLoader::get_singleton()->get_resource_type(p_path.get_slice("::", 0)) == "PackedScene") {
+	if (p_path.is_empty() || p_path.begins_with("ruzta://") || ResourceLoader::get_singleton()->get_recognized_extensions_for_type("PackedScene").has(p_path.get_extension())) {
 		return OK;
 	}
 
@@ -1578,8 +1583,8 @@ Error Ruzta::load_source_code(const String& p_path) {
 	path_valid = true;
 #ifdef TOOLS_ENABLED
 	source_changed_cache = true;
-	set_edited(false);
-	set_last_modified_time(FileAccess::get_modified_time(path));
+	// set_edited(false);
+	// set_last_modified_time(FileAccess::get_modified_time(path));
 #endif	// TOOLS_ENABLED
 	return OK;
 }
@@ -2375,7 +2380,7 @@ int32_t RuztaLanguage::_profiling_get_accumulated_data(ScriptLanguageExtensionPr
 			current++;
 			++nat_calls;
 		}
-		p_info_arr[last_non_internal].internal_time = nat_time;
+		// p_info_arr[last_non_internal].internal_time = nat_time;
 		elem = elem->next();
 	}
 #endif
@@ -2409,13 +2414,13 @@ int32_t RuztaLanguage::_profiling_get_frame_data(ScriptLanguageExtensionProfilin
 				p_info_arr[current].call_count = nat_calls->value.call_count;
 				p_info_arr[current].total_time = nat_calls->value.total_time;
 				p_info_arr[current].self_time = nat_calls->value.total_time;
-				p_info_arr[current].internal_time = nat_calls->value.total_time;
+				// p_info_arr[current].internal_time = nat_calls->value.total_time;
 				p_info_arr[current].signature = nat_calls->value.signature;
 				nat_time += nat_calls->value.total_time;
 				current++;
 				++nat_calls;
 			}
-			p_info_arr[last_non_internal].internal_time = nat_time;
+			// p_info_arr[last_non_internal].internal_time = nat_time;
 		}
 		elem = elem->next();
 	}
@@ -2435,7 +2440,7 @@ void RuztaLanguage::profiling_collate_native_call_data(bool p_accumulated) {
 		HashMap<String, RuztaFunction::Profile::NativeProfile>::Iterator it = nat_calls->begin();
 
 		while (it != nat_calls->end()) {
-			Vector<String> sig = it->value.signature.split("::");
+			PackedStringArray sig = it->value.signature.split("::");
 			HashMap<String, RuztaFunction::Profile::NativeProfile*>::ConstIterator already_found = seen_nat_calls.find(sig[2]);
 			if (already_found) {
 				already_found->value->total_time += it->value.total_time;
@@ -2491,18 +2496,14 @@ void RuztaLanguage::_reload_all_scripts() {
 #ifdef TOOLS_ENABLED
 		if (Engine::get_singleton()->is_editor_hint()) {
 			// Reload all pointers to existing singletons so that tool scripts can work with the reloaded extensions.
-			List<Engine::Singleton> singletons;
-			Engine::get_singleton()->get_singletons(&singletons);
-			for (const Engine::Singleton& E : singletons) {
-				if (globals.has(E.name)) {
-					_add_global(E.name, E.ptr);
-				}
+			for (const String &singleton_name : Engine::get_singleton()->get_singleton_list()) {
+				_add_global(singleton_name, Engine::get_singleton()->get_singleton(singleton_name));
 			}
 		}
 #endif	// TOOLS_ENABLED
 	}
 
-	reload_scripts(scripts, true);
+	_reload_scripts(scripts, true);
 #endif	// DEBUG_ENABLED
 }
 
@@ -2563,10 +2564,10 @@ void RuztaLanguage::_reload_scripts(const Array& p_scripts, bool p_soft_reload) 
 				Object* obj = (*scr->placeholders.begin())->get_owner();
 
 				// save instance info
-				ScriptInstance *si = static_cast<ScriptInstance *>(godot::internal::gdextension_interface_object_get_script_instance(obj, RuztaLanguage::get_singleton());
+				ScriptInstance *si = static_cast<ScriptInstance *>(godot::internal::gdextension_interface_object_get_script_instance(obj, RuztaLanguage::get_singleton()));
 				if (si) {
-					map.insert(obj->get_instance_id(), List<Pair<StringName, Variant>>());
-					List<Pair<StringName, Variant>>& state = map[obj->get_instance_id()];
+					map.insert(ObjectID(obj->get_instance_id()), List<Pair<StringName, Variant>>());
+					List<Pair<StringName, Variant>>& state = map[ObjectID(obj->get_instance_id())];
 					si->get_property_state(state);
 					obj->set_script(Variant());
 				} else {
@@ -2588,14 +2589,15 @@ void RuztaLanguage::_reload_scripts(const Array& p_scripts, bool p_soft_reload) 
 		print_verbose("Ruzta: Reloading: " + scr->get_path());
 		if (scr->is_built_in()) {
 			// TODO: It would be nice to do it more efficiently than loading the whole scene again.
-			Ref<PackedScene> scene = ResourceLoader::get_singleton()->load(scr->get_path().get_slice("::", 0), "", ResourceFormatLoader::CACHE_MODE_IGNORE_DEEP);
+			Ref<PackedScene> scene = ResourceLoader::get_singleton()->load(scr->get_path().get_slice("::", 0), "", ResourceLoader::CACHE_MODE_IGNORE_DEEP);
 			ERR_CONTINUE(scene.is_null());
 
-			Ref<SceneState> state = scene->get_state();
-			Ref<Ruzta> fresh = state->get_sub_resource(scr->get_path());
-			ERR_CONTINUE(fresh.is_null());
+			// TODO: Extract resource from scene
+			// Ref<SceneState> state = scene->get_state();			
+			// Ref<Ruzta> fresh = state->get_sub_resource(scr->get_path());
+			// ERR_CONTINUE(fresh.is_null());
 
-			scr->set_source_code(fresh->get_source_code());
+			// scr->set_source_code(fresh->get_source_code());
 		} else {
 			scr->load_source_code(scr->get_path());
 		}
@@ -2619,14 +2621,14 @@ void RuztaLanguage::_reload_scripts(const Array& p_scripts, bool p_soft_reload) 
 			ScriptInstance *script_inst = static_cast<ScriptInstance *>(godot::internal::gdextension_interface_object_get_script_instance(obj, RuztaLanguage::get_singleton()));
 			if (!script_inst) {
 				// failed, save reload state for next time if not saved
-				if (!scr->pending_reload_state.has(obj->get_instance_id())) {
-					scr->pending_reload_state[obj->get_instance_id()] = saved_state;
+				if (!scr->pending_reload_state.has(ObjectID(obj->get_instance_id()))) {
+					scr->pending_reload_state[ObjectID(obj->get_instance_id())] = saved_state;
 				}
 				continue;
 			}
 
 			if (script_inst->is_placeholder() && scr->is_placeholder_fallback_enabled()) {
-				void* placeholder = static_cast<void*>(script_inst);
+				PlaceHolderScriptInstance *placeholder = static_cast<PlaceHolderScriptInstance *>(script_inst);
 				for (List<Pair<StringName, Variant>>::Element* G = saved_state.front(); G; G = G->next()) {
 					placeholder->property_set_fallback(G->get().first, G->get().second);
 				}
@@ -2675,7 +2677,7 @@ void RuztaLanguage::_frame() {
 /* EDITOR FUNCTIONS */
 PackedStringArray RuztaLanguage::_get_reserved_words() const {
 	// Please keep alphabetical order within categories.
-	static const Vector<String> ret = {
+	static const PackedStringArray ret = {
 		// Control flow.
 		"break",
 		"continue",
@@ -2759,7 +2761,7 @@ Dictionary RuztaLanguage::_get_global_class_name(const String& p_path) const {
 		return result;
 	}
 
-	String source = f->get_as_utf8_string();
+	String source = f->get_as_text();
 
 	RuztaParser parser;
 	err = parser.parse(source, p_path, false, false);
@@ -2800,7 +2802,7 @@ Dictionary RuztaLanguage::_get_global_class_name(const String& p_path) const {
 					if (subfile.is_null()) {
 						break;
 					}
-					String subsource = subfile->get_as_utf8_string();
+					String subsource = subfile->get_as_text();
 
 					if (subsource.is_empty()) {
 						break;
@@ -2972,7 +2974,7 @@ Variant ResourceFormatLoaderRuzta::_load(const String& p_path, const String& p_o
 
 	if (err && scr.is_valid()) {
 		// If !scr.is_valid(), the error was likely from scr->load_source_code(), which already generates an error.
-		ERR_PRINT_ED(vformat(R"(Failed to load script "%s" with error "%s".)", p_original_path, error_names[err]));
+		ERR_PRINT_ED(vformat(R"(Failed to load script "%s" with error "%s".)", p_original_path, UtilityFunctions::error_string(err)));
 	}
 
 	return scr;
@@ -3002,7 +3004,7 @@ PackedStringArray ResourceFormatLoaderRuzta::_get_dependencies(const String& p_p
 	Ref<FileAccess> file = FileAccess::open(p_path, FileAccess::READ);
 	ERR_FAIL_COND_V_MSG(file.is_null(), dependencies, "Cannot open file '" + p_path + "'.");
 
-	String source = file->get_as_utf8_string();
+	String source = file->get_as_text();
 	if (source.is_empty()) {
 		return dependencies;
 	}
@@ -3043,15 +3045,22 @@ PackedStringArray ResourceFormatLoaderRuzta::_get_classes_used(const String& p_p
 		// Insert the "cursor" character, needed for the lookup to work.
 		const String source_with_cursor = source.insert(insert_idx + current.start_column, String::chr(0xFFFF));
 
-		ScriptLanguage::LookupResult result;
-		if (scr->get_language()->lookup_code(source_with_cursor, current.get_identifier(), p_path, nullptr, result) == OK) {
-			if (!result.class_name.is_empty() && ClassDB::class_exists(result.class_name)) {
-				r_classes.insert(result.class_name);
+		Dictionary result = RuztaLanguage::get_singleton()->_lookup_code(source_with_cursor, current.get_identifier(), p_path, nullptr);
+		if (result.size() > 0) {
+			if (!String(result["class_name"]).is_empty() && ClassDB::class_exists(result["class_name"])) {
+				r_classes.insert(result["class_name"]);
 			}
 
-			if (result.type == ScriptLanguage::LOOKUP_RESULT_CLASS_PROPERTY) {
+			if (int(result["type"]) == RuztaLanguage::LOOKUP_RESULT_CLASS_PROPERTY) {
 				PropertyInfo prop;
-				if (ClassDB::get_property_info(result.class_name, result.class_member, &prop)) {
+				bool found_prop = false;
+				for (Dictionary prop_dict :  ClassDB::class_get_property_list(result["class_name"])) {
+					if (prop_dict.has("name") && prop_dict["name"] == result["class_member"]) {
+						prop = PropertyInfo::from_dict(prop_dict);
+						found_prop = true;
+					}
+				}
+				if (found_prop) {
 					if (!prop.class_name.is_empty() && ClassDB::class_exists(prop.class_name)) {
 						r_classes.insert(prop.class_name);
 					}
@@ -3059,9 +3068,16 @@ PackedStringArray ResourceFormatLoaderRuzta::_get_classes_used(const String& p_p
 						r_classes.insert(prop.hint_string);
 					}
 				}
-			} else if (result.type == ScriptLanguage::LOOKUP_RESULT_CLASS_METHOD) {
+			} else if (int(result["type"]) == RuztaLanguage::LOOKUP_RESULT_CLASS_METHOD) {
 				MethodInfo met;
-				if (ClassDB::get_method_info(result.class_name, result.class_member, &met)) {
+				bool found_method = false;
+				for (Dictionary method_dict :  ClassDB::class_get_method_list(result["class_name"])) {
+					if (method_dict.has("name") && method_dict["name"] == result["class_member"]) {
+						met = MethodInfo::from_dict(method_dict);
+						found_method = true;
+					}
+				}
+				if (found_method) {
 					if (!met.return_val.class_name.is_empty() && ClassDB::class_exists(met.return_val.class_name)) {
 						r_classes.insert(met.return_val.class_name);
 					}
@@ -3100,7 +3116,7 @@ Error ResourceFormatSaverRuzta::_save(const Ref<Resource>& p_resource, const Str
 		}
 	}
 
-	if (ScriptServer::is_reload_scripts_on_save_enabled()) {
+	if (RuztaScriptServer::is_reload_scripts_on_save_enabled()) {
 		RuztaLanguage::get_singleton()->_reload_tool_script(p_resource, true);
 	}
 

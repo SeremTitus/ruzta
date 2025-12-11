@@ -733,7 +733,7 @@ Node *RuztaWorkspace::_get_owner_scene_node(String p_path) {
 	return owner_scene_node;
 }
 
-void RuztaWorkspace::completion(const LSP::CompletionParams &p_params, List<ScriptLanguage::CodeCompletionOption> *r_options) {
+void RuztaWorkspace::completion(const LSP::CompletionParams &p_params, List<RuztaLanguage::CodeCompletionOption> *r_options) {
 	String path = get_file_path(p_params.textDocument.uri);
 	String call_hint;
 	bool forced = false;
@@ -789,12 +789,12 @@ const LSP::DocumentSymbol *RuztaWorkspace::resolve_symbol(const LSP::TextDocumen
 		}
 
 		if (!symbol_identifier.is_empty()) {
-			if (ScriptServer::is_global_class(symbol_identifier)) {
-				String class_path = ScriptServer::get_global_class_path(symbol_identifier);
+			if (RuztaScriptServer::is_global_class(symbol_identifier)) {
+				String class_path = RuztaScriptServer::get_global_class_path(symbol_identifier);
 				symbol = get_script_symbol(class_path);
 
 			} else {
-				ScriptLanguage::LookupResult ret;
+				RuztaLanguage::LookupResult ret;
 				if (symbol_identifier == "new" && parser->get_lines()[p_doc_pos.position.line].remove_chars(" \t").contains("new(")) {
 					symbol_identifier = "_init";
 				}

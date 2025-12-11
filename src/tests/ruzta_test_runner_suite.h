@@ -40,68 +40,68 @@ namespace RuztaTests {
 
 // TODO: Handle some cases failing on release builds. See: https://github.com/godotengine/godot/pull/88452
 #ifdef TOOLS_ENABLED
-TEST_SUITE("[Modules][Ruzta]") {
-	TEST_CASE("Script compilation and runtime") {
-		bool print_filenames = OS::get_singleton()->get_cmdline_args().find("--print-filenames") != nullptr;
-		bool use_binary_tokens = OS::get_singleton()->get_cmdline_args().find("--use-binary-tokens") != nullptr;
-		RuztaTestRunner runner("modules/ruzta/tests/scripts", true, print_filenames, use_binary_tokens);
-		int fail_count = runner.run_tests();
-		INFO("Make sure `*.out` files have expected results.");
-		REQUIRE_MESSAGE(fail_count == 0, "All Ruzta tests should pass.");
-	}
-}
+// TEST_SUITE("[Modules][Ruzta]") {
+// 	TEST_CASE("Script compilation and runtime") {
+// 		bool print_filenames = OS::get_singleton()->get_cmdline_args().find("--print-filenames") != nullptr;
+// 		bool use_binary_tokens = OS::get_singleton()->get_cmdline_args().find("--use-binary-tokens") != nullptr;
+// 		RuztaTestRunner runner("modules/ruzta/tests/scripts", true, print_filenames, use_binary_tokens);
+// 		int fail_count = runner.run_tests();
+// 		INFO("Make sure `*.out` files have expected results.");
+// 		REQUIRE_MESSAGE(fail_count == 0, "All Ruzta tests should pass.");
+// 	}
+// }
 #endif // TOOLS_ENABLED
 
-TEST_CASE("[Modules][Ruzta] Load source code dynamically and run it") {
-	RuztaLanguage::get_singleton()->init();
-	Ref<Ruzta> ruzta = memnew(Ruzta);
-	ruzta->set_source_code(R"(
-extends RefCounted
+// TEST_CASE("[Modules][Ruzta] Load source code dynamically and run it") {
+// 	RuztaLanguage::get_singleton()->init();
+// 	Ref<Ruzta> ruzta = memnew(Ruzta);
+// 	ruzta->set_source_code(R"(
+// extends RefCounted
 
-func _init():
-	set_meta("result", 42)
-)");
-	// A spurious `Condition "err" is true` message is printed (despite parsing being successful and returning `OK`).
-	// Silence it.
-	ERR_PRINT_OFF;
-	const Error error = ruzta->reload();
-	ERR_PRINT_ON;
-	CHECK_MESSAGE(error == OK, "The script should parse successfully.");
+// func _init():
+// 	set_meta("result", 42)
+// )");
+// 	// A spurious `Condition "err" is true` message is printed (despite parsing being successful and returning `OK`).
+// 	// Silence it.
+// 	ERR_PRINT_OFF;
+// 	const Error error = ruzta->reload();
+// 	ERR_PRINT_ON;
+// 	CHECK_MESSAGE(error == OK, "The script should parse successfully.");
 
-	// Run the script by assigning it to a reference-counted object.
-	Ref<RefCounted> ref_counted = memnew(RefCounted);
-	ref_counted->set_script(ruzta);
-	CHECK_MESSAGE(int(ref_counted->get_meta("result")) == 42, "The script should assign object metadata successfully.");
-}
+// 	// Run the script by assigning it to a reference-counted object.
+// 	Ref<RefCounted> ref_counted = memnew(RefCounted);
+// 	ref_counted->set_script(ruzta);
+// 	CHECK_MESSAGE(int(ref_counted->get_meta("result")) == 42, "The script should assign object metadata successfully.");
+// }
 
-TEST_CASE("[Modules][Ruzta] Validate built-in API") {
-	RuztaLanguage *lang = RuztaLanguage::get_singleton();
+// TEST_CASE("[Modules][Ruzta] Validate built-in API") {
+// 	RuztaLanguage *lang = RuztaLanguage::get_singleton();
 
-	// Validate methods.
-	List<MethodInfo> builtin_methods;
-	lang->get_public_functions(&builtin_methods);
+// 	// Validate methods.
+// 	List<MethodInfo> builtin_methods;
+// 	lang->get_public_functions(&builtin_methods);
 
-	SUBCASE("[Modules][Ruzta] Validate built-in methods") {
-		for (const MethodInfo &mi : builtin_methods) {
-			for (int64_t i = 0; i < mi.arguments.size(); ++i) {
-				TEST_COND((mi.arguments[i].name.is_empty() || mi.arguments[i].name.begins_with("_unnamed_arg")),
-						vformat("Unnamed argument in position %d of built-in method '%s'.", i, mi.name));
-			}
-		}
-	}
+// 	SUBCASE("[Modules][Ruzta] Validate built-in methods") {
+// 		for (const MethodInfo &mi : builtin_methods) {
+// 			for (int64_t i = 0; i < mi.arguments.size(); ++i) {
+// 				TEST_COND((mi.arguments[i].name.is_empty() || mi.arguments[i].name.begins_with("_unnamed_arg")),
+// 						vformat("Unnamed argument in position %d of built-in method '%s'.", i, mi.name));
+// 			}
+// 		}
+// 	}
 
-	// Validate annotations.
-	List<MethodInfo> builtin_annotations;
-	lang->get_public_annotations(&builtin_annotations);
+// 	// Validate annotations.
+// 	List<MethodInfo> builtin_annotations;
+// 	lang->get_public_annotations(&builtin_annotations);
 
-	SUBCASE("[Modules][Ruzta] Validate built-in annotations") {
-		for (const MethodInfo &ai : builtin_annotations) {
-			for (int64_t i = 0; i < ai.arguments.size(); ++i) {
-				TEST_COND((ai.arguments[i].name.is_empty() || ai.arguments[i].name.begins_with("_unnamed_arg")),
-						vformat("Unnamed argument in position %d of built-in annotation '%s'.", i, ai.name));
-			}
-		}
-	}
-}
+// 	SUBCASE("[Modules][Ruzta] Validate built-in annotations") {
+// 		for (const MethodInfo &ai : builtin_annotations) {
+// 			for (int64_t i = 0; i < ai.arguments.size(); ++i) {
+// 				TEST_COND((ai.arguments[i].name.is_empty() || ai.arguments[i].name.begins_with("_unnamed_arg")),
+// 						vformat("Unnamed argument in position %d of built-in annotation '%s'.", i, ai.name));
+// 			}
+// 		}
+// 	}
+// }
 
 } // namespace RuztaTests

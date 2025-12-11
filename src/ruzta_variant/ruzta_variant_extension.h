@@ -73,7 +73,7 @@ class RuztaVariantExtension {
 		_unregister_variant_methods();
 		_unregister_variant_setters_getters();
 	}
-
+	
 	// Ops
 	typedef void (*ValidatedOperatorEvaluator)(const Variant* left, const Variant* right, Variant* r_ret);
 	typedef void (*PTROperatorEvaluator)(const void* left, const void* right, void* r_ret);
@@ -159,8 +159,8 @@ class RuztaVariantExtension {
 	static void get_constructor_list(Variant::Type p_type, List<MethodInfo>* r_list);
 
 	// Calls
-	static void get_method_list(Variant *base, List<MethodInfo> *p_list);
-	static void get_property_list(Variant *base, List<PropertyInfo> *p_list);
+	static void get_method_list(Variant* base, List<MethodInfo>* p_list);
+	static void get_property_list(Variant* base, List<PropertyInfo>* p_list);
 
 	static Variant::Type get_type_by_name(const String& p_type_name) {
 		static HashMap<String, Variant::Type> type_names;
@@ -196,38 +196,38 @@ class RuztaVariantExtension {
 	static int get_enum_value(Variant::Type p_type, const StringName& p_enum_name, const StringName& p_enumeration, bool* r_valid = nullptr);
 	static bool has_enum(Variant::Type p_type, const StringName& p_enum_name);
 	static StringName get_enum_for_enumeration(Variant::Type p_type, const StringName& p_enumeration);
-	
-	// Properties
-	typedef void (*ValidatedSetter)(Variant *base, const Variant *value);
-	typedef void (*ValidatedGetter)(const Variant *base, Variant *value);
 
-	static bool has_member(Variant::Type p_type, const StringName &p_member);
-	static Variant::Type get_member_type(Variant::Type p_type, const StringName &p_member);
-	static void get_member_list(Variant::Type p_type, List<StringName> *r_members);
+	// Properties
+	typedef void (*ValidatedSetter)(Variant* base, const Variant* value);
+	typedef void (*ValidatedGetter)(const Variant* base, Variant* value);
+
+	static bool has_member(Variant::Type p_type, const StringName& p_member);
+	static Variant::Type get_member_type(Variant::Type p_type, const StringName& p_member);
+	static void get_member_list(Variant::Type p_type, List<StringName>* r_members);
 	static int get_member_count(Variant::Type p_type);
 
-	static ValidatedSetter get_member_validated_setter(Variant::Type p_type, const StringName &p_member);
-	static ValidatedGetter get_member_validated_getter(Variant::Type p_type, const StringName &p_member);
+	static ValidatedSetter get_member_validated_setter(Variant::Type p_type, const StringName& p_member);
+	static ValidatedGetter get_member_validated_getter(Variant::Type p_type, const StringName& p_member);
 
-	typedef void (*PTRSetter)(void *base, const void *value);
-	typedef void (*PTRGetter)(const void *base, void *value);
+	typedef void (*PTRSetter)(void* base, const void* value);
+	typedef void (*PTRGetter)(const void* base, void* value);
 
-	static PTRSetter get_member_ptr_setter(Variant::Type p_type, const StringName &p_member);
-	static PTRGetter get_member_ptr_getter(Variant::Type p_type, const StringName &p_member);
+	static PTRSetter get_member_ptr_setter(Variant::Type p_type, const StringName& p_member);
+	static PTRGetter get_member_ptr_getter(Variant::Type p_type, const StringName& p_member);
 
-	// Indexing 
+	// Indexing
 	static bool has_indexing(Variant::Type p_type);
 	static Variant::Type get_indexed_element_type(Variant::Type p_type);
 	static uint32_t get_indexed_element_usage(Variant::Type p_type);
 
-	typedef void (*ValidatedIndexedSetter)(Variant *base, int64_t index, const Variant *value, bool *oob);
-	typedef void (*ValidatedIndexedGetter)(const Variant *base, int64_t index, Variant *value, bool *oob);
+	typedef void (*ValidatedIndexedSetter)(Variant* base, int64_t index, const Variant* value, bool* oob);
+	typedef void (*ValidatedIndexedGetter)(const Variant* base, int64_t index, Variant* value, bool* oob);
 
 	static ValidatedIndexedSetter get_member_validated_indexed_setter(Variant::Type p_type);
 	static ValidatedIndexedGetter get_member_validated_indexed_getter(Variant::Type p_type);
 
-	typedef void (*PTRIndexedSetter)(void *base, int64_t index, const void *value);
-	typedef void (*PTRIndexedGetter)(const void *base, int64_t index, void *value);
+	typedef void (*PTRIndexedSetter)(void* base, int64_t index, const void* value);
+	typedef void (*PTRIndexedGetter)(const void* base, int64_t index, void* value);
 
 	static PTRIndexedSetter get_member_ptr_indexed_setter(Variant::Type p_type);
 	static PTRIndexedGetter get_member_ptr_indexed_getter(Variant::Type p_type);
@@ -235,17 +235,17 @@ class RuztaVariantExtension {
 	// Keying
 	static bool is_keyed(Variant::Type p_type);
 
-	typedef void (*ValidatedKeyedSetter)(Variant *base, const Variant *key, const Variant *value, bool *valid);
-	typedef void (*ValidatedKeyedGetter)(const Variant *base, const Variant *key, Variant *value, bool *valid);
-	typedef bool (*ValidatedKeyedChecker)(const Variant *base, const Variant *key, bool *valid);
+	typedef void (*ValidatedKeyedSetter)(Variant* base, const Variant* key, const Variant* value, bool* valid);
+	typedef void (*ValidatedKeyedGetter)(const Variant* base, const Variant* key, Variant* value, bool* valid);
+	typedef bool (*ValidatedKeyedChecker)(const Variant* base, const Variant* key, bool* valid);
 
 	static ValidatedKeyedSetter get_member_validated_keyed_setter(Variant::Type p_type);
 	static ValidatedKeyedGetter get_member_validated_keyed_getter(Variant::Type p_type);
 	static ValidatedKeyedChecker get_member_validated_keyed_checker(Variant::Type p_type);
 
-	typedef void (*PTRKeyedSetter)(void *base, const void *key, const void *value);
-	typedef void (*PTRKeyedGetter)(const void *base, const void *key, void *value);
-	typedef uint32_t (*PTRKeyedChecker)(const void *base, const void *key);
+	typedef void (*PTRKeyedSetter)(void* base, const void* key, const void* value);
+	typedef void (*PTRKeyedGetter)(const void* base, const void* key, void* value);
+	typedef uint32_t (*PTRKeyedChecker)(const void* base, const void* key);
 
 	static PTRKeyedSetter get_member_ptr_keyed_setter(Variant::Type p_type);
 	static PTRKeyedGetter get_member_ptr_keyed_getter(Variant::Type p_type);

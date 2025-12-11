@@ -785,7 +785,7 @@ void RuztaSyntaxHighlighter::_update_cache() {
 	/* User types. */
 	const Color usertype_color = RuztaEditorPlugin::get_editor_settings()->get_setting("text_editor/theme/highlighting/user_type_color");
 	LocalVector<StringName> global_classes;
-	ScriptServer::get_global_class_list(global_classes);
+	RuztaScriptServer::get_global_class_list(global_classes);
 	for (const StringName &class_name : global_classes) {
 		class_names[class_name] = usertype_color;
 	}

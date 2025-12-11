@@ -4688,8 +4688,8 @@ bool RuztaParser::export_annotations(AnnotationNode *p_annotation, Node *p_targe
 			}
 		} else if (p_annotation->name == StringName("@export_node_path")) {
 			String native_class = arg_string;
-			if (ScriptServer::is_global_class(arg_string)) {
-				native_class = ScriptServer::get_global_class_native_base(arg_string);
+			if (RuztaScriptServer::is_global_class(arg_string)) {
+				native_class = RuztaScriptServer::get_global_class_native_base(arg_string);
 			}
 			if (!ClassDB::class_exists(native_class)) {
 				push_error(vformat(R"(Invalid argument %d of annotation "@export_node_path": The class "%s" was not found in the global scope.)", i + 1, arg_string), p_annotation->arguments[i]);

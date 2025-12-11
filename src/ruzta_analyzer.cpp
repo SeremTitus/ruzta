@@ -32,24 +32,24 @@
 
 #include "ruzta_analyzer.h"
 
+#include <godot_cpp/classes/engine.hpp>			   // original: core/config/engine.h
+#include <godot_cpp/classes/file_access.hpp>	   // original: core/io/file_access.h
+#include <godot_cpp/classes/node.hpp>			   // original: scene/main/node.h
+#include <godot_cpp/classes/project_settings.hpp>  // original: core/config/project_settings.h
+#include <godot_cpp/classes/resource_loader.hpp>   // original: core/io/resource_loader.h
+#include <godot_cpp/classes/script_language.hpp>   // original: core/object/script_language.h
+#include <godot_cpp/core/class_db.hpp>			   // original: core/object/class_db.h
+#include <godot_cpp/templates/hash_map.hpp>		   // original: core/templates/hash_map.h
+
 #include "ruzta.h"
 #include "ruzta_utility_callable.h"
 #include "ruzta_utility_functions.h"
-
-#include <godot_cpp/classes/engine.hpp> // original: core/config/engine.h
-#include <godot_cpp/classes/project_settings.hpp> // original: core/config/project_settings.h
-#include "ruzta_variant/core_constants.h" // original: core/core_constants.h
-#include <godot_cpp/classes/file_access.hpp> // original: core/io/file_access.h
-#include <godot_cpp/classes/resource_loader.hpp> // original: core/io/resource_loader.h
-#include <godot_cpp/core/class_db.hpp> // original: core/object/class_db.h
-#include <godot_cpp/classes/script_language.hpp> // original: core/object/script_language.h
-#include <godot_cpp/templates/hash_map.hpp> // original: core/templates/hash_map.h
-#include <godot_cpp/classes/node.hpp> // original: scene/main/node.h
+#include "ruzta_variant/core_constants.h"  // original: core/core_constants.h
 
 #define UNNAMED_ENUM "<anonymous enum>"
 #define ENUM_SEPARATOR "."
 
-static MethodInfo info_from_utility_func(const StringName &p_function) {
+static MethodInfo info_from_utility_func(const StringName& p_function) {
 	ERR_FAIL_COND_V(!RuztaVariantExtension::has_utility_function(p_function), MethodInfo());
 
 	MethodInfo info(p_function);
@@ -70,7 +70,7 @@ static MethodInfo info_from_utility_func(const StringName &p_function) {
 			pi.name = RuztaVariantExtension::get_utility_function_argument_name(p_function, i);
 #else
 			pi.name = "arg" + itos(i + 1);
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 			pi.type = RuztaVariantExtension::get_utility_function_argument_type(p_function, i);
 			info.arguments.push_back(pi);
 		}
@@ -79,7 +79,7 @@ static MethodInfo info_from_utility_func(const StringName &p_function) {
 	return info;
 }
 
-static RuztaParser::DataType make_callable_type(const MethodInfo &p_info) {
+static RuztaParser::DataType make_callable_type(const MethodInfo& p_info) {
 	RuztaParser::DataType type;
 	type.type_source = RuztaParser::DataType::ANNOTATED_EXPLICIT;
 	type.kind = RuztaParser::DataType::BUILTIN;
@@ -89,7 +89,7 @@ static RuztaParser::DataType make_callable_type(const MethodInfo &p_info) {
 	return type;
 }
 
-static RuztaParser::DataType make_signal_type(const MethodInfo &p_info) {
+static RuztaParser::DataType make_signal_type(const MethodInfo& p_info) {
 	RuztaParser::DataType type;
 	type.type_source = RuztaParser::DataType::ANNOTATED_EXPLICIT;
 	type.kind = RuztaParser::DataType::BUILTIN;
@@ -99,7 +99,7 @@ static RuztaParser::DataType make_signal_type(const MethodInfo &p_info) {
 	return type;
 }
 
-static RuztaParser::DataType make_native_meta_type(const StringName &p_class_name) {
+static RuztaParser::DataType make_native_meta_type(const StringName& p_class_name) {
 	RuztaParser::DataType type;
 	type.type_source = RuztaParser::DataType::ANNOTATED_EXPLICIT;
 	type.kind = RuztaParser::DataType::NATIVE;
@@ -110,7 +110,7 @@ static RuztaParser::DataType make_native_meta_type(const StringName &p_class_nam
 	return type;
 }
 
-static RuztaParser::DataType make_script_meta_type(const Ref<Script> &p_script) {
+static RuztaParser::DataType make_script_meta_type(const Ref<Script>& p_script) {
 	RuztaParser::DataType type;
 	type.type_source = RuztaParser::DataType::ANNOTATED_EXPLICIT;
 	type.kind = RuztaParser::DataType::SCRIPT;
@@ -125,7 +125,7 @@ static RuztaParser::DataType make_script_meta_type(const Ref<Script> &p_script) 
 
 // In enum types, native_type is used to store the class (native or otherwise) that the enum belongs to.
 // This disambiguates between similarly named enums in base classes or outer classes
-static RuztaParser::DataType make_enum_type(const StringName &p_enum_name, const String &p_base_name, const bool p_meta = false) {
+static RuztaParser::DataType make_enum_type(const StringName& p_enum_name, const String& p_base_name, const bool p_meta = false) {
 	RuztaParser::DataType type;
 	type.type_source = RuztaParser::DataType::ANNOTATED_EXPLICIT;
 	type.kind = RuztaParser::DataType::ENUM;
@@ -139,13 +139,13 @@ static RuztaParser::DataType make_enum_type(const StringName &p_enum_name, const
 	if (p_base_name.is_empty()) {
 		type.native_type = p_enum_name;
 	} else {
-		type.native_type = p_base_name + String(ENUM_SEPARATOR)+ p_enum_name;
+		type.native_type = p_base_name + String(ENUM_SEPARATOR) + p_enum_name;
 	}
 
 	return type;
 }
 
-static RuztaParser::DataType make_class_enum_type(const StringName &p_enum_name, RuztaParser::ClassNode *p_class, const String &p_script_path, bool p_meta = true) {
+static RuztaParser::DataType make_class_enum_type(const StringName& p_enum_name, RuztaParser::ClassNode* p_class, const String& p_script_path, bool p_meta = true) {
 	RuztaParser::DataType type = make_enum_type(p_enum_name, p_class->fqcn, p_meta);
 
 	type.class_type = p_class;
@@ -154,7 +154,7 @@ static RuztaParser::DataType make_class_enum_type(const StringName &p_enum_name,
 	return type;
 }
 
-static RuztaParser::DataType make_native_enum_type(const StringName &p_enum_name, const StringName &p_native_class, bool p_meta = true) {
+static RuztaParser::DataType make_native_enum_type(const StringName& p_enum_name, const StringName& p_native_class, bool p_meta = true) {
 	// Find out which base class declared the enum, so the name is always the same even when coming from other contexts.
 	StringName native_base = p_native_class;
 	while (true && native_base != StringName()) {
@@ -174,14 +174,14 @@ static RuztaParser::DataType make_native_enum_type(const StringName &p_enum_name
 	List<StringName> enum_values;
 	ClassDB::class_get_enum_constants(native_base, p_enum_name, &enum_values, true);
 
-	for (const StringName &E : enum_values) {
+	for (const StringName& E : enum_values) {
 		type.enum_values[E] = ClassDB::class_get_integer_constant(native_base, E);
 	}
 
 	return type;
 }
 
-static RuztaParser::DataType make_builtin_enum_type(const StringName &p_enum_name, Variant::Type p_type, bool p_meta = true) {
+static RuztaParser::DataType make_builtin_enum_type(const StringName& p_enum_name, Variant::Type p_type, bool p_meta = true) {
 	RuztaParser::DataType type = make_enum_type(p_enum_name, Variant::get_type_name(p_type), p_meta);
 	if (p_meta) {
 		// Built-in enum types are not dictionaries.
@@ -192,14 +192,14 @@ static RuztaParser::DataType make_builtin_enum_type(const StringName &p_enum_nam
 	List<StringName> enum_values;
 	RuztaVariantExtension::get_enumerations_for_enum(p_type, p_enum_name, &enum_values);
 
-	for (const StringName &E : enum_values) {
+	for (const StringName& E : enum_values) {
 		type.enum_values[E] = RuztaVariantExtension::get_enum_value(p_type, p_enum_name, E);
 	}
 
 	return type;
 }
 
-static RuztaParser::DataType make_global_enum_type(const StringName &p_enum_name, const StringName &p_base, bool p_meta = true) {
+static RuztaParser::DataType make_global_enum_type(const StringName& p_enum_name, const StringName& p_base, bool p_meta = true) {
 	RuztaParser::DataType type = make_enum_type(p_enum_name, p_base, p_meta);
 	if (p_meta) {
 		// Global enum types are not dictionaries.
@@ -209,7 +209,7 @@ static RuztaParser::DataType make_global_enum_type(const StringName &p_enum_name
 
 	HashMap<StringName, int64_t> enum_values;
 	CoreConstants::get_enum_values(type.native_type, &enum_values);
-	for (const KeyValue<StringName, int64_t> &element : enum_values) {
+	for (const KeyValue<StringName, int64_t>& element : enum_values) {
 		type.enum_values[element.key] = element.value;
 	}
 
@@ -226,17 +226,17 @@ static RuztaParser::DataType make_builtin_meta_type(Variant::Type p_type) {
 	return type;
 }
 
-bool RuztaAnalyzer::has_member_name_conflict_in_script_class(const StringName &p_member_name, const RuztaParser::ClassNode *p_class, const RuztaParser::Node *p_member) {
+bool RuztaAnalyzer::has_member_name_conflict_in_script_class(const StringName& p_member_name, const RuztaParser::ClassNode* p_class, const RuztaParser::Node* p_member) {
 	if (p_class->members_indices.has(p_member_name)) {
 		int index = p_class->members_indices[p_member_name];
-		const RuztaParser::ClassNode::Member *member = &p_class->members[index];
+		const RuztaParser::ClassNode::Member* member = &p_class->members[index];
 
 		if (member->type == RuztaParser::ClassNode::Member::VARIABLE ||
-				member->type == RuztaParser::ClassNode::Member::CONSTANT ||
-				member->type == RuztaParser::ClassNode::Member::ENUM ||
-				member->type == RuztaParser::ClassNode::Member::ENUM_VALUE ||
-				member->type == RuztaParser::ClassNode::Member::CLASS ||
-				member->type == RuztaParser::ClassNode::Member::SIGNAL) {
+			member->type == RuztaParser::ClassNode::Member::CONSTANT ||
+			member->type == RuztaParser::ClassNode::Member::ENUM ||
+			member->type == RuztaParser::ClassNode::Member::ENUM_VALUE ||
+			member->type == RuztaParser::ClassNode::Member::CLASS ||
+			member->type == RuztaParser::ClassNode::Member::SIGNAL) {
 			return true;
 		}
 		if (p_member->type != RuztaParser::Node::FUNCTION && member->type == RuztaParser::ClassNode::Member::FUNCTION) {
@@ -247,7 +247,7 @@ bool RuztaAnalyzer::has_member_name_conflict_in_script_class(const StringName &p
 	return false;
 }
 
-auto ClassDB_has_property = [](const StringName &p_class, const StringName &p_property) -> bool {
+auto ClassDB_has_property = [](const StringName& p_class, const StringName& p_property) -> bool {
 	bool has_property = false;
 	godot::TypedArray<Dictionary> property_list = ClassDB::class_get_property_list(p_class);
 	for (Dictionary property : property_list) {
@@ -258,7 +258,7 @@ auto ClassDB_has_property = [](const StringName &p_class, const StringName &p_pr
 	return has_property;
 };
 
-bool RuztaAnalyzer::has_member_name_conflict_in_native_type(const StringName &p_member_name, const StringName &p_native_type_string) {
+bool RuztaAnalyzer::has_member_name_conflict_in_native_type(const StringName& p_member_name, const StringName& p_native_type_string) {
 	if (ClassDB::class_has_signal(p_native_type_string, p_member_name)) {
 		return true;
 	}
@@ -276,7 +276,7 @@ bool RuztaAnalyzer::has_member_name_conflict_in_native_type(const StringName &p_
 	return false;
 }
 
-Error RuztaAnalyzer::check_native_member_name_conflict(const StringName &p_member_name, const RuztaParser::Node *p_member_node, const StringName &p_native_type_string) {
+Error RuztaAnalyzer::check_native_member_name_conflict(const StringName& p_member_name, const RuztaParser::Node* p_member_node, const StringName& p_native_type_string) {
 	if (has_member_name_conflict_in_native_type(p_member_name, p_native_type_string)) {
 		push_error(vformat(R"(Member "%s" redefined (original in native class '%s'))", p_member_name, p_native_type_string), p_member_node);
 		return ERR_PARSE_ERROR;
@@ -295,11 +295,11 @@ Error RuztaAnalyzer::check_native_member_name_conflict(const StringName &p_membe
 	return OK;
 }
 
-Error RuztaAnalyzer::check_class_member_name_conflict(const RuztaParser::ClassNode *p_class_node, const StringName &p_member_name, const RuztaParser::Node *p_member_node) {
+Error RuztaAnalyzer::check_class_member_name_conflict(const RuztaParser::ClassNode* p_class_node, const StringName& p_member_name, const RuztaParser::Node* p_member_node) {
 	// TODO check outer classes for static members only
-	const RuztaParser::DataType *current_data_type = &p_class_node->base_type;
+	const RuztaParser::DataType* current_data_type = &p_class_node->base_type;
 	while (current_data_type && current_data_type->kind == RuztaParser::DataType::Kind::CLASS) {
-		RuztaParser::ClassNode *current_class_node = current_data_type->class_type;
+		RuztaParser::ClassNode* current_class_node = current_data_type->class_type;
 		if (has_member_name_conflict_in_script_class(p_member_name, current_class_node, p_member_node)) {
 			String parent_class_name = current_class_node->fqcn;
 			if (current_class_node->identifier != nullptr) {
@@ -315,16 +315,16 @@ Error RuztaAnalyzer::check_class_member_name_conflict(const RuztaParser::ClassNo
 	if (current_data_type && current_data_type->kind == RuztaParser::DataType::Kind::NATIVE) {
 		if (current_data_type->native_type != StringName()) {
 			return check_native_member_name_conflict(
-					p_member_name,
-					p_member_node,
-					current_data_type->native_type);
+				p_member_name,
+				p_member_node,
+				current_data_type->native_type);
 		}
 	}
 
 	return OK;
 }
 
-void RuztaAnalyzer::get_class_node_current_scope_classes(RuztaParser::ClassNode *p_node, List<RuztaParser::ClassNode *> *p_list, RuztaParser::Node *p_source) {
+void RuztaAnalyzer::get_class_node_current_scope_classes(RuztaParser::ClassNode* p_node, List<RuztaParser::ClassNode*>* p_list, RuztaParser::Node* p_source) {
 	ERR_FAIL_NULL(p_node);
 	ERR_FAIL_NULL(p_list);
 
@@ -350,14 +350,14 @@ void RuztaAnalyzer::get_class_node_current_scope_classes(RuztaParser::ClassNode 
 	}
 }
 
-Error RuztaAnalyzer::resolve_class_inheritance(RuztaParser::ClassNode *p_class, const RuztaParser::Node *p_source) {
+Error RuztaAnalyzer::resolve_class_inheritance(RuztaParser::ClassNode* p_class, const RuztaParser::Node* p_source) {
 	if (p_source == nullptr && parser->has_class(p_class)) {
 		p_source = p_class;
 	}
 
 	Ref<RuztaParserRef> parser_ref = ensure_cached_external_parser_for_class(p_class, nullptr, "Trying to resolve class inheritance", p_source);
 	Finally finally([&]() {
-		for (RuztaParser::ClassNode *look_class = p_class; look_class != nullptr; look_class = look_class->base_type.class_type) {
+		for (RuztaParser::ClassNode* look_class = p_class; look_class != nullptr; look_class = look_class->base_type.class_type) {
 			ensure_cached_external_parser_for_class(look_class->base_type.class_type, look_class, "Trying to resolve class inheritance", p_source);
 		}
 	});
@@ -384,8 +384,8 @@ Error RuztaAnalyzer::resolve_class_inheritance(RuztaParser::ClassNode *p_class, 
 			return ERR_PARSE_ERROR;
 		}
 
-		RuztaAnalyzer *other_analyzer = parser_ref->get_analyzer();
-		RuztaParser *other_parser = parser_ref->get_parser();
+		RuztaAnalyzer* other_analyzer = parser_ref->get_analyzer();
+		RuztaParser* other_parser = parser_ref->get_parser();
 
 		int error_count = other_parser->errors.size();
 		other_analyzer->resolve_class_inheritance(p_class);
@@ -397,7 +397,7 @@ Error RuztaAnalyzer::resolve_class_inheritance(RuztaParser::ClassNode *p_class, 
 		return OK;
 	}
 
-	RuztaParser::ClassNode *previous_class = parser->current_class;
+	RuztaParser::ClassNode* previous_class = parser->current_class;
 	parser->current_class = p_class;
 
 	if (p_class->identifier) {
@@ -406,7 +406,7 @@ Error RuztaAnalyzer::resolve_class_inheritance(RuztaParser::ClassNode *p_class, 
 			push_error(vformat(R"(Class "%s" hides a built-in type.)", class_name), p_class->identifier);
 		} else if (class_exists(class_name)) {
 			push_error(vformat(R"(Class "%s" hides a native class.)", class_name), p_class->identifier);
-		} else if (ScriptServer::is_global_class(class_name) && (!Ruzta::is_canonically_equal_paths(ScriptServer::get_global_class_path(class_name), parser->script_path) || p_class != parser->head)) {
+		} else if (RuztaScriptServer::is_global_class(class_name) && (!Ruzta::is_canonically_equal_paths(RuztaScriptServer::get_global_class_path(class_name), parser->script_path) || p_class != parser->head)) {
 			push_error(vformat(R"(Class "%s" hides a global script class.)", class_name), p_class->identifier);
 		} else if (ProjectSettings::get_singleton()->has_autoload(class_name) && ProjectSettings::get_singleton()->get_autoload(class_name).is_singleton) {
 			push_error(vformat(R"(Class "%s" hides an autoload singleton.)", class_name), p_class->identifier);
@@ -461,7 +461,7 @@ Error RuztaAnalyzer::resolve_class_inheritance(RuztaParser::ClassNode *p_class, 
 			if (!parser->_is_tool && ext_parser->get_parser()->_is_tool) {
 				parser->push_warning(p_class, RuztaWarning::MISSING_TOOL);
 			}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 
 			base = ext_parser->get_parser()->head->get_datatype();
 		} else {
@@ -469,12 +469,12 @@ Error RuztaAnalyzer::resolve_class_inheritance(RuztaParser::ClassNode *p_class, 
 				push_error("Could not resolve an empty super class path.", p_class);
 				return ERR_PARSE_ERROR;
 			}
-			RuztaParser::IdentifierNode *id = p_class->extends[extends_index++];
-			const StringName &name = id->name;
+			RuztaParser::IdentifierNode* id = p_class->extends[extends_index++];
+			const StringName& name = id->name;
 			base.type_source = RuztaParser::DataType::ANNOTATED_EXPLICIT;
 
-			if (ScriptServer::is_global_class(name)) {
-				String base_path = ScriptServer::get_global_class_path(name);
+			if (RuztaScriptServer::is_global_class(name)) {
+				String base_path = RuztaScriptServer::get_global_class_path(name);
 
 				if (Ruzta::is_canonically_equal_paths(base_path, parser->script_path)) {
 					base = parser->head->get_datatype();
@@ -495,12 +495,12 @@ Error RuztaAnalyzer::resolve_class_inheritance(RuztaParser::ClassNode *p_class, 
 					if (!parser->_is_tool && base_parser->get_parser()->_is_tool) {
 						parser->push_warning(p_class, RuztaWarning::MISSING_TOOL);
 					}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 
 					base = base_parser->get_parser()->head->get_datatype();
 				}
 			} else if (ProjectSettings::get_singleton()->has_autoload(name) && ProjectSettings::get_singleton()->get_autoload(name).is_singleton) {
-				const ProjectSettings::AutoloadInfo &info = ProjectSettings::get_singleton()->get_autoload(name);
+				const ProjectSettings::AutoloadInfo& info = ProjectSettings::get_singleton()->get_autoload(name);
 				if (!info.path.has_extension(RuztaLanguage::get_singleton()->get_extension())) {
 					push_error(vformat(R"(Singleton %s is not a Ruzta.)", info.name), id);
 					return ERR_PARSE_ERROR;
@@ -522,7 +522,7 @@ Error RuztaAnalyzer::resolve_class_inheritance(RuztaParser::ClassNode *p_class, 
 				if (!parser->_is_tool && info_parser->get_parser()->_is_tool) {
 					parser->push_warning(p_class, RuztaWarning::MISSING_TOOL);
 				}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 
 				base = info_parser->get_parser()->head->get_datatype();
 			} else if (class_exists(name)) {
@@ -536,9 +536,9 @@ Error RuztaAnalyzer::resolve_class_inheritance(RuztaParser::ClassNode *p_class, 
 			} else {
 				// Look for other classes in script.
 				bool found = false;
-				List<RuztaParser::ClassNode *> script_classes;
+				List<RuztaParser::ClassNode*> script_classes;
 				get_class_node_current_scope_classes(p_class, &script_classes, id);
-				for (RuztaParser::ClassNode *look_class : script_classes) {
+				for (RuztaParser::ClassNode* look_class : script_classes) {
 					if (look_class->identifier && look_class->identifier->name == name) {
 						if (!look_class->get_datatype().is_set()) {
 							Error err = resolve_class_inheritance(look_class, id);
@@ -557,7 +557,7 @@ Error RuztaAnalyzer::resolve_class_inheritance(RuztaParser::ClassNode *p_class, 
 
 						switch (member.type) {
 							case RuztaParser::ClassNode::Member::CLASS:
-								break; // OK.
+								break;	// OK.
 							case RuztaParser::ClassNode::Member::CONSTANT:
 								if (member_datatype.kind != RuztaParser::DataType::SCRIPT && member_datatype.kind != RuztaParser::DataType::CLASS) {
 									push_error(vformat(R"(Constant "%s" is not a preloaded script or class.)", name), id);
@@ -583,7 +583,7 @@ Error RuztaAnalyzer::resolve_class_inheritance(RuztaParser::ClassNode *p_class, 
 		}
 
 		for (int index = extends_index; index < p_class->extends.size(); index++) {
-			RuztaParser::IdentifierNode *id = p_class->extends[index];
+			RuztaParser::IdentifierNode* id = p_class->extends[index];
 
 			if (base.kind != RuztaParser::DataType::CLASS) {
 				push_error(vformat(R"(Cannot get nested types for extension from non-Ruzta type "%s".)", base.to_string()), id);
@@ -614,7 +614,7 @@ Error RuztaAnalyzer::resolve_class_inheritance(RuztaParser::ClassNode *p_class, 
 	}
 
 	// Check for cyclic inheritance.
-	const RuztaParser::ClassNode *base_class = result.class_type;
+	const RuztaParser::ClassNode* base_class = result.class_type;
 	while (base_class) {
 		if (base_class->fqcn == p_class->fqcn) {
 			push_error("Cyclic inheritance.", p_class);
@@ -628,7 +628,7 @@ Error RuztaAnalyzer::resolve_class_inheritance(RuztaParser::ClassNode *p_class, 
 	p_class->set_datatype(class_type);
 
 	// Apply annotations.
-	for (RuztaParser::AnnotationNode *&E : p_class->annotations) {
+	for (RuztaParser::AnnotationNode*& E : p_class->annotations) {
 		resolve_annotation(E);
 		E->apply(parser, p_class, p_class->outer);
 	}
@@ -638,7 +638,7 @@ Error RuztaAnalyzer::resolve_class_inheritance(RuztaParser::ClassNode *p_class, 
 	return OK;
 }
 
-Error RuztaAnalyzer::resolve_class_inheritance(RuztaParser::ClassNode *p_class, bool p_recursive) {
+Error RuztaAnalyzer::resolve_class_inheritance(RuztaParser::ClassNode* p_class, bool p_recursive) {
 	Error err = resolve_class_inheritance(p_class);
 	if (err) {
 		return err;
@@ -658,7 +658,7 @@ Error RuztaAnalyzer::resolve_class_inheritance(RuztaParser::ClassNode *p_class, 
 	return OK;
 }
 
-RuztaParser::DataType RuztaAnalyzer::resolve_datatype(RuztaParser::TypeNode *p_type) {
+RuztaParser::DataType RuztaAnalyzer::resolve_datatype(RuztaParser::TypeNode* p_type) {
 	RuztaParser::DataType bad_type;
 	bad_type.kind = RuztaParser::DataType::VARIANT;
 	bad_type.type_source = RuztaParser::DataType::INFERRED;
@@ -691,12 +691,12 @@ RuztaParser::DataType RuztaAnalyzer::resolve_datatype(RuztaParser::TypeNode *p_t
 		return result;
 	}
 
-	const RuztaParser::IdentifierNode *first_id = p_type->type_chain[0];
+	const RuztaParser::IdentifierNode* first_id = p_type->type_chain[0];
 	StringName first = first_id->name;
 	bool type_found = false;
 
 	if (first_id->suite && first_id->suite->has_local(first)) {
-		const RuztaParser::SuiteNode::Local &local = first_id->suite->get_local(first);
+		const RuztaParser::SuiteNode::Local& local = first_id->suite->get_local(first);
 		if (local.type == RuztaParser::SuiteNode::Local::CONSTANT) {
 			result = local.get_datatype();
 			if (!result.is_set()) {
@@ -793,16 +793,16 @@ RuztaParser::DataType RuztaAnalyzer::resolve_datatype(RuztaParser::TypeNode *p_t
 			result.kind = RuztaParser::DataType::NATIVE;
 			result.builtin_type = Variant::OBJECT;
 			result.native_type = first;
-		} else if (ScriptServer::is_global_class(first)) {
-			if (Ruzta::is_canonically_equal_paths(parser->script_path, ScriptServer::get_global_class_path(first))) {
+		} else if (RuztaScriptServer::is_global_class(first)) {
+			if (Ruzta::is_canonically_equal_paths(parser->script_path, RuztaScriptServer::get_global_class_path(first))) {
 				result = parser->head->get_datatype();
 			} else {
-				String path = ScriptServer::get_global_class_path(first);
+				String path = RuztaScriptServer::get_global_class_path(first);
 				String ext = path.get_extension();
 				if (ext == RuztaLanguage::get_singleton()->get_extension()) {
 					Ref<RuztaParserRef> ref = parser->get_depended_parser_for(path);
 					if (ref.is_null() || ref->raise_status(RuztaParserRef::INHERITANCE_SOLVED) != OK) {
-						push_error(vformat(R"(Could not parse global class "%s" from "%s".)", first, ScriptServer::get_global_class_path(first)), p_type);
+						push_error(vformat(R"(Could not parse global class "%s" from "%s".)", first, RuztaScriptServer::get_global_class_path(first)), p_type);
 						return bad_type;
 					}
 					result = ref->get_parser()->head->get_datatype();
@@ -811,13 +811,13 @@ RuztaParser::DataType RuztaAnalyzer::resolve_datatype(RuztaParser::TypeNode *p_t
 				}
 			}
 		} else if (ProjectSettings::get_singleton()->has_autoload(first) && ProjectSettings::get_singleton()->get_autoload(first).is_singleton) {
-			const ProjectSettings::AutoloadInfo &autoload = ProjectSettings::get_singleton()->get_autoload(first);
+			const ProjectSettings::AutoloadInfo& autoload = ProjectSettings::get_singleton()->get_autoload(first);
 			String script_path;
-			if (ResourceLoader::get_singleton()->get_resource_type(autoload.path) == "PackedScene") {
+			if (ResourceLoader::get_singleton()->get_recognized_extensions_for_type("PackedScene").has(autoload.path.get_extension())) {
 				// Try to get script from scene if possible.
 				if (RuztaLanguage::get_singleton()->has_any_global_constant(autoload.name)) {
 					Variant constant = RuztaLanguage::get_singleton()->get_any_global_constant(autoload.name);
-					Node *node = Object::cast_to<Node>(constant);
+					Node* node = Object::cast_to<Node>(constant);
 					if (node != nullptr) {
 						Ref<Ruzta> scr = node->get_script();
 						if (scr.is_valid()) {
@@ -825,7 +825,7 @@ RuztaParser::DataType RuztaAnalyzer::resolve_datatype(RuztaParser::TypeNode *p_t
 						}
 					}
 				}
-			} else if (ResourceLoader::get_singleton()->get_resource_type(autoload.path) == "Ruzta") {
+			} else if (ResourceLoader::get_singleton()->get_recognized_extensions_for_type("PackedScene").has(autoload.path.get_extension())) {
 				script_path = autoload.path;
 			}
 			if (script_path.is_empty()) {
@@ -852,10 +852,10 @@ RuztaParser::DataType RuztaAnalyzer::resolve_datatype(RuztaParser::TypeNode *p_t
 			result = make_global_enum_type(first, StringName());
 		} else {
 			// Classes in current scope.
-			List<RuztaParser::ClassNode *> script_classes;
+			List<RuztaParser::ClassNode*> script_classes;
 			bool found = false;
 			get_class_node_current_scope_classes(parser->current_class, &script_classes, p_type);
-			for (RuztaParser::ClassNode *script_class : script_classes) {
+			for (RuztaParser::ClassNode* script_class : script_classes) {
 				if (found) {
 					break;
 				}
@@ -966,15 +966,15 @@ RuztaParser::DataType RuztaAnalyzer::resolve_datatype(RuztaParser::TypeNode *p_t
 	return result;
 }
 
-void RuztaAnalyzer::resolve_class_member(RuztaParser::ClassNode *p_class, const StringName &p_name, const RuztaParser::Node *p_source) {
+void RuztaAnalyzer::resolve_class_member(RuztaParser::ClassNode* p_class, const StringName& p_name, const RuztaParser::Node* p_source) {
 	ERR_FAIL_COND(!p_class->has_member(p_name));
 	resolve_class_member(p_class, p_class->members_indices[p_name], p_source);
 }
 
-void RuztaAnalyzer::resolve_class_member(RuztaParser::ClassNode *p_class, int p_index, const RuztaParser::Node *p_source) {
+void RuztaAnalyzer::resolve_class_member(RuztaParser::ClassNode* p_class, int p_index, const RuztaParser::Node* p_source) {
 	ERR_FAIL_INDEX(p_index, p_class->members.size());
 
-	RuztaParser::ClassNode::Member &member = p_class->members.write[p_index];
+	RuztaParser::ClassNode::Member& member = p_class->members.write[p_index];
 	if (p_source == nullptr && parser->has_class(p_class)) {
 		p_source = member.get_source_node();
 	}
@@ -1017,8 +1017,8 @@ void RuztaAnalyzer::resolve_class_member(RuztaParser::ClassNode *p_class, int p_
 			return;
 		}
 
-		RuztaAnalyzer *other_analyzer = parser_ref->get_analyzer();
-		RuztaParser *other_parser = parser_ref->get_parser();
+		RuztaAnalyzer* other_analyzer = parser_ref->get_analyzer();
+		RuztaParser* other_parser = parser_ref->get_parser();
 
 		int error_count = other_parser->errors.size();
 		other_analyzer->resolve_class_member(p_class, p_index);
@@ -1030,7 +1030,7 @@ void RuztaAnalyzer::resolve_class_member(RuztaParser::ClassNode *p_class, int p_
 		return;
 	}
 
-	RuztaParser::ClassNode *previous_class = parser->current_class;
+	RuztaParser::ClassNode* previous_class = parser->current_class;
 	parser->current_class = p_class;
 
 	RuztaParser::DataType resolving_datatype;
@@ -1038,17 +1038,17 @@ void RuztaAnalyzer::resolve_class_member(RuztaParser::ClassNode *p_class, int p_
 
 	{
 #ifdef DEBUG_ENABLED
-		RuztaParser::Node *member_node = member.get_source_node();
+		RuztaParser::Node* member_node = member.get_source_node();
 		if (member_node && member_node->type != RuztaParser::Node::ANNOTATION) {
 			// Apply @warning_ignore annotations before resolving member.
-			for (RuztaParser::AnnotationNode *&E : member_node->annotations) {
+			for (RuztaParser::AnnotationNode*& E : member_node->annotations) {
 				if (E->name == StringName("@warning_ignore")) {
 					resolve_annotation(E);
 					E->apply(parser, member.variable, p_class);
 				}
 			}
 		}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 		switch (member.type) {
 			case RuztaParser::ClassNode::Member::VARIABLE: {
 				bool previous_static_context = static_context;
@@ -1061,7 +1061,7 @@ void RuztaAnalyzer::resolve_class_member(RuztaParser::ClassNode *p_class, int p_
 				resolve_pending_lambda_bodies();
 
 				// Apply annotations.
-				for (RuztaParser::AnnotationNode *&E : member.variable->annotations) {
+				for (RuztaParser::AnnotationNode*& E : member.variable->annotations) {
 					if (E->name != StringName("@warning_ignore")) {
 						resolve_annotation(E);
 						E->apply(parser, member.variable, p_class);
@@ -1078,22 +1078,22 @@ void RuztaAnalyzer::resolve_class_member(RuztaParser::ClassNode *p_class, int p_
 					// Check if it is call to get_node() on self (using shorthand $ or not), so we can check if @onready is needed.
 					// This could be improved by traversing the expression fully and checking the presence of get_node at any level.
 					if (!member.variable->is_static && !member.variable->onready && member.variable->initializer && (member.variable->initializer->type == RuztaParser::Node::GET_NODE || member.variable->initializer->type == RuztaParser::Node::CALL || member.variable->initializer->type == RuztaParser::Node::CAST)) {
-						RuztaParser::Node *expr = member.variable->initializer;
+						RuztaParser::Node* expr = member.variable->initializer;
 						if (expr->type == RuztaParser::Node::CAST) {
-							expr = static_cast<RuztaParser::CastNode *>(expr)->operand;
+							expr = static_cast<RuztaParser::CastNode*>(expr)->operand;
 						}
 						bool is_get_node = expr->type == RuztaParser::Node::GET_NODE;
 						bool is_using_shorthand = is_get_node;
 						if (!is_get_node && expr->type == RuztaParser::Node::CALL) {
 							is_using_shorthand = false;
-							RuztaParser::CallNode *call = static_cast<RuztaParser::CallNode *>(expr);
+							RuztaParser::CallNode* call = static_cast<RuztaParser::CallNode*>(expr);
 							if (call->function_name == StringName("get_node")) {
 								switch (call->get_callee_type()) {
 									case RuztaParser::Node::IDENTIFIER: {
 										is_get_node = true;
 									} break;
 									case RuztaParser::Node::SUBSCRIPT: {
-										RuztaParser::SubscriptNode *subscript = static_cast<RuztaParser::SubscriptNode *>(call->callee);
+										RuztaParser::SubscriptNode* subscript = static_cast<RuztaParser::SubscriptNode*>(call->callee);
 										is_get_node = subscript->is_attribute && subscript->base->type == RuztaParser::Node::SELF;
 									} break;
 									default:
@@ -1104,14 +1104,14 @@ void RuztaAnalyzer::resolve_class_member(RuztaParser::ClassNode *p_class, int p_
 						if (is_get_node) {
 							String offending_syntax = "get_node()";
 							if (is_using_shorthand) {
-								RuztaParser::GetNodeNode *get_node_node = static_cast<RuztaParser::GetNodeNode *>(expr);
+								RuztaParser::GetNodeNode* get_node_node = static_cast<RuztaParser::GetNodeNode*>(expr);
 								offending_syntax = get_node_node->use_dollar ? "$" : "%";
 							}
 							parser->push_warning(member.variable, RuztaWarning::GET_NODE_DEFAULT_WITHOUT_ONREADY, offending_syntax);
 						}
 					}
 				}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 			} break;
 			case RuztaParser::ClassNode::Member::CONSTANT: {
 				check_class_member_name_conflict(p_class, member.constant->identifier->name, member.constant);
@@ -1119,7 +1119,7 @@ void RuztaAnalyzer::resolve_class_member(RuztaParser::ClassNode *p_class, int p_
 				resolve_constant(member.constant, false);
 
 				// Apply annotations.
-				for (RuztaParser::AnnotationNode *&E : member.constant->annotations) {
+				for (RuztaParser::AnnotationNode*& E : member.constant->annotations) {
 					resolve_annotation(E);
 					E->apply(parser, member.constant, p_class);
 				}
@@ -1134,14 +1134,14 @@ void RuztaAnalyzer::resolve_class_member(RuztaParser::ClassNode *p_class, int p_
 				MethodInfo mi = MethodInfo(member.signal->identifier->name);
 
 				for (int j = 0; j < member.signal->parameters.size(); j++) {
-					RuztaParser::ParameterNode *param = member.signal->parameters[j];
+					RuztaParser::ParameterNode* param = member.signal->parameters[j];
 					RuztaParser::DataType param_type = type_from_metatype(resolve_datatype(param->datatype_specifier));
 					param->set_datatype(param_type);
 #ifdef DEBUG_ENABLED
 					if (param->datatype_specifier == nullptr) {
 						parser->push_warning(param, RuztaWarning::UNTYPED_DECLARATION, "Parameter", param->identifier->name);
 					}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 					mi.arguments.push_back(param_type.to_property_info(param->identifier->name));
 					// Signals do not support parameter default values.
 				}
@@ -1149,7 +1149,7 @@ void RuztaAnalyzer::resolve_class_member(RuztaParser::ClassNode *p_class, int p_
 				member.signal->method_info = mi;
 
 				// Apply annotations.
-				for (RuztaParser::AnnotationNode *&E : member.signal->annotations) {
+				for (RuztaParser::AnnotationNode*& E : member.signal->annotations) {
 					resolve_annotation(E);
 					E->apply(parser, member.signal, p_class);
 				}
@@ -1160,12 +1160,12 @@ void RuztaAnalyzer::resolve_class_member(RuztaParser::ClassNode *p_class, int p_
 				member.m_enum->set_datatype(resolving_datatype);
 				RuztaParser::DataType enum_type = make_class_enum_type(member.m_enum->identifier->name, p_class, parser->script_path, true);
 
-				const RuztaParser::EnumNode *prev_enum = current_enum;
+				const RuztaParser::EnumNode* prev_enum = current_enum;
 				current_enum = member.m_enum;
 
 				Dictionary dictionary;
 				for (int j = 0; j < member.m_enum->values.size(); j++) {
-					RuztaParser::EnumNode::Value &element = member.m_enum->values.write[j];
+					RuztaParser::EnumNode::Value& element = member.m_enum->values.write[j];
 
 					if (element.custom_value) {
 						reduce_expression(element.custom_value);
@@ -1194,7 +1194,7 @@ void RuztaAnalyzer::resolve_class_member(RuztaParser::ClassNode *p_class, int p_
 					if (member.m_enum->identifier->name == StringName()) {
 						is_shadowing(element.identifier, "enum member", false);
 					}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 				}
 
 				current_enum = prev_enum;
@@ -1204,13 +1204,13 @@ void RuztaAnalyzer::resolve_class_member(RuztaParser::ClassNode *p_class, int p_
 				member.m_enum->dictionary = dictionary;
 
 				// Apply annotations.
-				for (RuztaParser::AnnotationNode *&E : member.m_enum->annotations) {
+				for (RuztaParser::AnnotationNode*& E : member.m_enum->annotations) {
 					resolve_annotation(E);
 					E->apply(parser, member.m_enum, p_class);
 				}
 			} break;
 			case RuztaParser::ClassNode::Member::FUNCTION:
-				for (RuztaParser::AnnotationNode *&E : member.function->annotations) {
+				for (RuztaParser::AnnotationNode*& E : member.function->annotations) {
 					resolve_annotation(E);
 					E->apply(parser, member.function, p_class);
 				}
@@ -1222,7 +1222,7 @@ void RuztaAnalyzer::resolve_class_member(RuztaParser::ClassNode *p_class, int p_
 				if (member.enum_value.custom_value) {
 					check_class_member_name_conflict(p_class, member.enum_value.identifier->name, member.enum_value.custom_value);
 
-					const RuztaParser::EnumNode *prev_enum = current_enum;
+					const RuztaParser::EnumNode* prev_enum = current_enum;
 					current_enum = member.enum_value.parent_enum;
 					reduce_expression(member.enum_value.custom_value);
 					current_enum = prev_enum;
@@ -1239,7 +1239,7 @@ void RuztaAnalyzer::resolve_class_member(RuztaParser::ClassNode *p_class, int p_
 					check_class_member_name_conflict(p_class, member.enum_value.identifier->name, member.enum_value.parent_enum);
 
 					if (member.enum_value.index > 0) {
-						const RuztaParser::EnumNode::Value &prev_value = member.enum_value.parent_enum->values[member.enum_value.index - 1];
+						const RuztaParser::EnumNode::Value& prev_value = member.enum_value.parent_enum->values[member.enum_value.index - 1];
 						resolve_class_member(p_class, prev_value.identifier->name, member.enum_value.identifier);
 						member.enum_value.value = prev_value.value + 1;
 					} else {
@@ -1272,7 +1272,7 @@ void RuztaAnalyzer::resolve_class_member(RuztaParser::ClassNode *p_class, int p_
 	parser->current_class = previous_class;
 }
 
-void RuztaAnalyzer::resolve_class_interface(RuztaParser::ClassNode *p_class, const RuztaParser::Node *p_source) {
+void RuztaAnalyzer::resolve_class_interface(RuztaParser::ClassNode* p_class, const RuztaParser::Node* p_source) {
 	if (p_source == nullptr && parser->has_class(p_class)) {
 		p_source = p_class;
 	}
@@ -1282,7 +1282,7 @@ void RuztaAnalyzer::resolve_class_interface(RuztaParser::ClassNode *p_class, con
 	if (!p_class->resolved_interface) {
 #ifdef DEBUG_ENABLED
 		bool has_static_data = p_class->has_static_data;
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 
 		if (!parser->has_class(p_class)) {
 			if (parser_ref.is_null()) {
@@ -1296,8 +1296,8 @@ void RuztaAnalyzer::resolve_class_interface(RuztaParser::ClassNode *p_class, con
 				return;
 			}
 
-			RuztaAnalyzer *other_analyzer = parser_ref->get_analyzer();
-			RuztaParser *other_parser = parser_ref->get_parser();
+			RuztaAnalyzer* other_analyzer = parser_ref->get_analyzer();
+			RuztaParser* other_parser = parser_ref->get_parser();
 
 			int error_count = other_parser->errors.size();
 			other_analyzer->resolve_class_interface(p_class);
@@ -1317,7 +1317,7 @@ void RuztaAnalyzer::resolve_class_interface(RuztaParser::ClassNode *p_class, con
 
 		RuztaParser::DataType base_type = p_class->base_type;
 		if (base_type.kind == RuztaParser::DataType::CLASS) {
-			RuztaParser::ClassNode *base_class = base_type.class_type;
+			RuztaParser::ClassNode* base_class = base_type.class_type;
 			resolve_class_interface(base_class, p_class);
 		}
 
@@ -1331,13 +1331,13 @@ void RuztaAnalyzer::resolve_class_interface(RuztaParser::ClassNode *p_class, con
 					has_static_data = member.m_class->has_static_data;
 				}
 			}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 		}
 
 #ifdef DEBUG_ENABLED
 		if (!has_static_data && p_class->annotated_static_unload) {
-			RuztaParser::Node *static_unload = nullptr;
-			for (RuztaParser::AnnotationNode *node : p_class->annotations) {
+			RuztaParser::Node* static_unload = nullptr;
+			for (RuztaParser::AnnotationNode* node : p_class->annotations) {
 				if (node->name == String("@static_unload")) {
 					static_unload = node;
 					break;
@@ -1345,11 +1345,11 @@ void RuztaAnalyzer::resolve_class_interface(RuztaParser::ClassNode *p_class, con
 			}
 			parser->push_warning(static_unload ? static_unload : p_class, RuztaWarning::REDUNDANT_STATIC_UNLOAD);
 		}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 	}
 }
 
-void RuztaAnalyzer::resolve_class_interface(RuztaParser::ClassNode *p_class, bool p_recursive) {
+void RuztaAnalyzer::resolve_class_interface(RuztaParser::ClassNode* p_class, bool p_recursive) {
 	resolve_class_interface(p_class);
 
 	if (p_recursive) {
@@ -1362,7 +1362,7 @@ void RuztaAnalyzer::resolve_class_interface(RuztaParser::ClassNode *p_class, boo
 	}
 }
 
-void RuztaAnalyzer::resolve_class_body(RuztaParser::ClassNode *p_class, const RuztaParser::Node *p_source) {
+void RuztaAnalyzer::resolve_class_body(RuztaParser::ClassNode* p_class, const RuztaParser::Node* p_source) {
 	if (p_source == nullptr && parser->has_class(p_class)) {
 		p_source = p_class;
 	}
@@ -1385,8 +1385,8 @@ void RuztaAnalyzer::resolve_class_body(RuztaParser::ClassNode *p_class, const Ru
 			return;
 		}
 
-		RuztaAnalyzer *other_analyzer = parser_ref->get_analyzer();
-		RuztaParser *other_parser = parser_ref->get_parser();
+		RuztaAnalyzer* other_analyzer = parser_ref->get_analyzer();
+		RuztaParser* other_parser = parser_ref->get_parser();
 
 		int error_count = other_parser->errors.size();
 		other_analyzer->resolve_class_body(p_class);
@@ -1400,14 +1400,14 @@ void RuztaAnalyzer::resolve_class_body(RuztaParser::ClassNode *p_class, const Ru
 
 	p_class->resolved_body = true;
 
-	RuztaParser::ClassNode *previous_class = parser->current_class;
+	RuztaParser::ClassNode* previous_class = parser->current_class;
 	parser->current_class = p_class;
 
 	resolve_class_interface(p_class, p_source);
 
 	RuztaParser::DataType base_type = p_class->base_type;
 	if (base_type.kind == RuztaParser::DataType::CLASS) {
-		RuztaParser::ClassNode *base_class = base_type.class_type;
+		RuztaParser::ClassNode* base_class = base_type.class_type;
 		resolve_class_body(base_class, p_class);
 	}
 
@@ -1416,7 +1416,7 @@ void RuztaAnalyzer::resolve_class_body(RuztaParser::ClassNode *p_class, const Ru
 		RuztaParser::ClassNode::Member member = p_class->members[i];
 		if (member.type == RuztaParser::ClassNode::Member::FUNCTION) {
 			// Apply annotations.
-			for (RuztaParser::AnnotationNode *&E : member.function->annotations) {
+			for (RuztaParser::AnnotationNode*& E : member.function->annotations) {
 				resolve_annotation(E);
 				E->apply(parser, member.function, p_class);
 			}
@@ -1452,11 +1452,11 @@ void RuztaAnalyzer::resolve_class_body(RuztaParser::ClassNode *p_class, const Ru
 			if (member.variable->usages == 0 && String(member.variable->identifier->name).begins_with("_")) {
 				parser->push_warning(member.variable->identifier, RuztaWarning::UNUSED_PRIVATE_CLASS_VARIABLE, member.variable->identifier->name);
 			}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 
 			if (member.variable->property == RuztaParser::VariableNode::PROP_SETGET) {
-				RuztaParser::FunctionNode *getter_function = nullptr;
-				RuztaParser::FunctionNode *setter_function = nullptr;
+				RuztaParser::FunctionNode* getter_function = nullptr;
+				RuztaParser::FunctionNode* setter_function = nullptr;
 
 				bool has_valid_getter = false;
 				bool has_valid_setter = false;
@@ -1486,7 +1486,7 @@ void RuztaAnalyzer::resolve_class_body(RuztaParser::ClassNode *p_class, const Ru
 							if (member.variable->datatype.builtin_type == Variant::INT && return_datatype.builtin_type == Variant::FLOAT) {
 								parser->push_warning(member.variable, RuztaWarning::NARROWING_CONVERSION);
 							}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 						}
 					}
 				}
@@ -1512,7 +1512,7 @@ void RuztaAnalyzer::resolve_class_body(RuztaParser::ClassNode *p_class, const Ru
 						if (member.variable->datatype.builtin_type == Variant::FLOAT && setter_function->parameters[0]->datatype.builtin_type == Variant::INT) {
 							parser->push_warning(member.variable, RuztaWarning::NARROWING_CONVERSION);
 						}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 					}
 				}
 
@@ -1527,7 +1527,7 @@ void RuztaAnalyzer::resolve_class_body(RuztaParser::ClassNode *p_class, const Ru
 			if (member.signal->usages == 0) {
 				parser->push_warning(member.signal->identifier, RuztaWarning::UNUSED_SIGNAL, member.signal->identifier->name);
 			}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 		}
 	}
 
@@ -1539,7 +1539,7 @@ void RuztaAnalyzer::resolve_class_body(RuztaParser::ClassNode *p_class, const Ru
 	// Resolve base abstract class/method implementation requirements.
 	if (!p_class->is_abstract) {
 		HashSet<StringName> implemented_funcs;
-		const RuztaParser::ClassNode *base_class = p_class;
+		const RuztaParser::ClassNode* base_class = p_class;
 		while (base_class != nullptr) {
 			if (!base_class->is_abstract && base_class != p_class) {
 				break;
@@ -1577,7 +1577,7 @@ void RuztaAnalyzer::resolve_class_body(RuztaParser::ClassNode *p_class, const Ru
 	parser->current_class = previous_class;
 }
 
-void RuztaAnalyzer::resolve_class_body(RuztaParser::ClassNode *p_class, bool p_recursive) {
+void RuztaAnalyzer::resolve_class_body(RuztaParser::ClassNode* p_class, bool p_recursive) {
 	resolve_class_body(p_class);
 
 	if (p_recursive) {
@@ -1590,60 +1590,60 @@ void RuztaAnalyzer::resolve_class_body(RuztaParser::ClassNode *p_class, bool p_r
 	}
 }
 
-void RuztaAnalyzer::resolve_node(RuztaParser::Node *p_node, bool p_is_root) {
+void RuztaAnalyzer::resolve_node(RuztaParser::Node* p_node, bool p_is_root) {
 	ERR_FAIL_NULL_MSG(p_node, "Trying to resolve type of a null node.");
 
 	switch (p_node->type) {
 		case RuztaParser::Node::NONE:
-			break; // Unreachable.
+			break;	// Unreachable.
 		case RuztaParser::Node::CLASS:
 			// NOTE: Currently this route is never executed, `resolve_class_*()` is called directly.
-			if (OK == resolve_class_inheritance(static_cast<RuztaParser::ClassNode *>(p_node), true)) {
-				resolve_class_interface(static_cast<RuztaParser::ClassNode *>(p_node), true);
-				resolve_class_body(static_cast<RuztaParser::ClassNode *>(p_node), true);
+			if (OK == resolve_class_inheritance(static_cast<RuztaParser::ClassNode*>(p_node), true)) {
+				resolve_class_interface(static_cast<RuztaParser::ClassNode*>(p_node), true);
+				resolve_class_body(static_cast<RuztaParser::ClassNode*>(p_node), true);
 			}
 			break;
 		case RuztaParser::Node::CONSTANT:
-			resolve_constant(static_cast<RuztaParser::ConstantNode *>(p_node), true);
+			resolve_constant(static_cast<RuztaParser::ConstantNode*>(p_node), true);
 			break;
 		case RuztaParser::Node::FOR:
-			resolve_for(static_cast<RuztaParser::ForNode *>(p_node));
+			resolve_for(static_cast<RuztaParser::ForNode*>(p_node));
 			break;
 		case RuztaParser::Node::IF:
-			resolve_if(static_cast<RuztaParser::IfNode *>(p_node));
+			resolve_if(static_cast<RuztaParser::IfNode*>(p_node));
 			break;
 		case RuztaParser::Node::SUITE:
-			resolve_suite(static_cast<RuztaParser::SuiteNode *>(p_node));
+			resolve_suite(static_cast<RuztaParser::SuiteNode*>(p_node));
 			break;
 		case RuztaParser::Node::VARIABLE:
-			resolve_variable(static_cast<RuztaParser::VariableNode *>(p_node), true);
+			resolve_variable(static_cast<RuztaParser::VariableNode*>(p_node), true);
 			break;
 		case RuztaParser::Node::WHILE:
-			resolve_while(static_cast<RuztaParser::WhileNode *>(p_node));
+			resolve_while(static_cast<RuztaParser::WhileNode*>(p_node));
 			break;
 		case RuztaParser::Node::ANNOTATION:
-			resolve_annotation(static_cast<RuztaParser::AnnotationNode *>(p_node));
+			resolve_annotation(static_cast<RuztaParser::AnnotationNode*>(p_node));
 			break;
 		case RuztaParser::Node::ASSERT:
-			resolve_assert(static_cast<RuztaParser::AssertNode *>(p_node));
+			resolve_assert(static_cast<RuztaParser::AssertNode*>(p_node));
 			break;
 		case RuztaParser::Node::MATCH:
-			resolve_match(static_cast<RuztaParser::MatchNode *>(p_node));
+			resolve_match(static_cast<RuztaParser::MatchNode*>(p_node));
 			break;
 		case RuztaParser::Node::MATCH_BRANCH:
-			resolve_match_branch(static_cast<RuztaParser::MatchBranchNode *>(p_node), nullptr);
+			resolve_match_branch(static_cast<RuztaParser::MatchBranchNode*>(p_node), nullptr);
 			break;
 		case RuztaParser::Node::PARAMETER:
-			resolve_parameter(static_cast<RuztaParser::ParameterNode *>(p_node));
+			resolve_parameter(static_cast<RuztaParser::ParameterNode*>(p_node));
 			break;
 		case RuztaParser::Node::PATTERN:
-			resolve_match_pattern(static_cast<RuztaParser::PatternNode *>(p_node), nullptr);
+			resolve_match_pattern(static_cast<RuztaParser::PatternNode*>(p_node), nullptr);
 			break;
 		case RuztaParser::Node::RETURN:
-			resolve_return(static_cast<RuztaParser::ReturnNode *>(p_node));
+			resolve_return(static_cast<RuztaParser::ReturnNode*>(p_node));
 			break;
 		case RuztaParser::Node::TYPE:
-			resolve_datatype(static_cast<RuztaParser::TypeNode *>(p_node));
+			resolve_datatype(static_cast<RuztaParser::TypeNode*>(p_node));
 			break;
 		// Resolving expression is the same as reducing them.
 		case RuztaParser::Node::ARRAY:
@@ -1663,7 +1663,7 @@ void RuztaAnalyzer::resolve_node(RuztaParser::Node *p_node, bool p_is_root) {
 		case RuztaParser::Node::TERNARY_OPERATOR:
 		case RuztaParser::Node::TYPE_TEST:
 		case RuztaParser::Node::UNARY_OPERATOR:
-			reduce_expression(static_cast<RuztaParser::ExpressionNode *>(p_node), p_is_root);
+			reduce_expression(static_cast<RuztaParser::ExpressionNode*>(p_node), p_is_root);
 			break;
 		case RuztaParser::Node::BREAK:
 		case RuztaParser::Node::BREAKPOINT:
@@ -1677,7 +1677,7 @@ void RuztaAnalyzer::resolve_node(RuztaParser::Node *p_node, bool p_is_root) {
 	}
 }
 
-void RuztaAnalyzer::resolve_annotation(RuztaParser::AnnotationNode *p_annotation) {
+void RuztaAnalyzer::resolve_annotation(RuztaParser::AnnotationNode* p_annotation) {
 	ERR_FAIL_COND_MSG(!parser->valid_annotations.has(p_annotation->name), vformat(R"(Annotation "%s" not found to validate.)", p_annotation->name));
 
 	if (p_annotation->is_resolved) {
@@ -1685,11 +1685,11 @@ void RuztaAnalyzer::resolve_annotation(RuztaParser::AnnotationNode *p_annotation
 	}
 	p_annotation->is_resolved = true;
 
-	const MethodInfo &annotation_info = parser->valid_annotations[p_annotation->name].info;
+	const MethodInfo& annotation_info = parser->valid_annotations[p_annotation->name].info;
 
 	for (int64_t i = 0, j = 0; i < p_annotation->arguments.size(); i++) {
-		RuztaParser::ExpressionNode *argument = p_annotation->arguments[i];
-		const PropertyInfo &argument_info = annotation_info.arguments[j];
+		RuztaParser::ExpressionNode* argument = p_annotation->arguments[i];
+		const PropertyInfo& argument_info = annotation_info.arguments[j];
 
 		if (j + 1 < annotation_info.arguments.size()) {
 			++j;
@@ -1709,7 +1709,7 @@ void RuztaAnalyzer::resolve_annotation(RuztaParser::AnnotationNode *p_annotation
 			if (argument_info.type == Variant::INT && value.get_type() == Variant::FLOAT) {
 				parser->push_warning(argument, RuztaWarning::NARROWING_CONVERSION);
 			}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 
 			if (!Variant::can_convert_strict(value.get_type(), argument_info.type)) {
 				push_error(vformat(R"(Invalid argument for annotation "%s": argument %d should be "%s" but is "%s".)", p_annotation->name, i + 1, Variant::get_type_name(argument_info.type), argument->get_datatype().to_string()), argument);
@@ -1717,7 +1717,7 @@ void RuztaAnalyzer::resolve_annotation(RuztaParser::AnnotationNode *p_annotation
 			}
 
 			Variant converted_to;
-			const Variant *converted_from = &value;
+			const Variant* converted_from = &value;
 			GDExtensionCallError call_error;
 			RuztaVariantExtension::construct(argument_info.type, converted_to, &converted_from, 1, call_error);
 
@@ -1733,7 +1733,7 @@ void RuztaAnalyzer::resolve_annotation(RuztaParser::AnnotationNode *p_annotation
 	}
 }
 
-void RuztaAnalyzer::resolve_function_signature(RuztaParser::FunctionNode *p_function, const RuztaParser::Node *p_source, bool p_is_lambda) {
+void RuztaAnalyzer::resolve_function_signature(RuztaParser::FunctionNode* p_function, const RuztaParser::Node* p_source, bool p_is_lambda) {
 	if (p_source == nullptr) {
 		p_source = p_function;
 	}
@@ -1750,7 +1750,7 @@ void RuztaAnalyzer::resolve_function_signature(RuztaParser::FunctionNode *p_func
 	}
 	p_function->resolved_signature = true;
 
-	RuztaParser::FunctionNode *previous_function = parser->current_function;
+	RuztaParser::FunctionNode* previous_function = parser->current_function;
 	parser->current_function = p_function;
 	bool previous_static_context = static_context;
 	if (p_is_lambda) {
@@ -1775,14 +1775,14 @@ void RuztaAnalyzer::resolve_function_signature(RuztaParser::FunctionNode *p_func
 
 #ifdef TOOLS_ENABLED
 	int default_value_count = 0;
-#endif // TOOLS_ENABLED
+#endif	// TOOLS_ENABLED
 
 #ifdef DEBUG_ENABLED
 	String function_visible_name = function_name;
 	if (function_name == StringName()) {
 		function_visible_name = p_is_lambda ? "<anonymous lambda>" : "<unknown function>";
 	}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 
 	for (int i = 0; i < p_function->parameters.size(); i++) {
 		resolve_parameter(p_function->parameters[i]);
@@ -1792,17 +1792,17 @@ void RuztaAnalyzer::resolve_function_signature(RuztaParser::FunctionNode *p_func
 			parser->push_warning(p_function->parameters[i]->identifier, RuztaWarning::UNUSED_PARAMETER, function_visible_name, p_function->parameters[i]->identifier->name);
 		}
 		is_shadowing(p_function->parameters[i]->identifier, "function parameter", true);
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 
 		if (p_function->parameters[i]->initializer) {
 #ifdef TOOLS_ENABLED
 			default_value_count++;
-#endif // TOOLS_ENABLED
+#endif	// TOOLS_ENABLED
 
 			if (p_function->parameters[i]->initializer->is_constant) {
 				p_function->default_arg_values.push_back(p_function->parameters[i]->initializer->reduced_value);
 			} else {
-				p_function->default_arg_values.push_back(Variant()); // Prevent shift.
+				p_function->default_arg_values.push_back(Variant());  // Prevent shift.
 			}
 		}
 	}
@@ -1831,7 +1831,7 @@ void RuztaAnalyzer::resolve_function_signature(RuztaParser::FunctionNode *p_func
 			parser->push_warning(p_function->rest_parameter->identifier, RuztaWarning::UNUSED_PARAMETER, function_visible_name, p_function->rest_parameter->identifier->name);
 		}
 		is_shadowing(p_function->rest_parameter->identifier, "function parameter", true);
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 	}
 
 	if (!p_is_lambda && function_name == RuztaLanguage::get_singleton()->strings._init) {
@@ -1910,11 +1910,11 @@ void RuztaAnalyzer::resolve_function_signature(RuztaParser::FunctionNode *p_func
 
 			if (valid) {
 				int i = 0;
-				for (const RuztaParser::DataType &parent_par_type : parameters_types) {
+				for (const RuztaParser::DataType& parent_par_type : parameters_types) {
 					if (i >= p_function->parameters.size()) {
 						break;
 					}
-					const RuztaParser::DataType &current_par_type = p_function->parameters[i]->datatype;
+					const RuztaParser::DataType& current_par_type = p_function->parameters[i]->datatype;
 					i++;
 					// Check parameter type contravariance.
 					if (parent_par_type.is_variant() && parent_par_type.is_hard_type()) {
@@ -1931,7 +1931,7 @@ void RuztaAnalyzer::resolve_function_signature(RuztaParser::FunctionNode *p_func
 				// Compute parent signature as a string to show in the error message.
 				String parent_signature = String(function_name) + "(";
 				int j = 0;
-				for (const RuztaParser::DataType &par_type : parameters_types) {
+				for (const RuztaParser::DataType& par_type : parameters_types) {
 					if (j > 0) {
 						parent_signature += ", ";
 					}
@@ -1967,16 +1967,16 @@ void RuztaAnalyzer::resolve_function_signature(RuztaParser::FunctionNode *p_func
 			if (native_base != StringName()) {
 				parser->push_warning(p_function, RuztaWarning::NATIVE_METHOD_OVERRIDE, function_name, native_base);
 			}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 		}
-#endif // TOOLS_ENABLED
+#endif	// TOOLS_ENABLED
 	}
 
 #ifdef DEBUG_ENABLED
 	if (p_function->return_type == nullptr) {
 		parser->push_warning(p_function, RuztaWarning::UNTYPED_DECLARATION, "Function", function_visible_name);
 	}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 
 	method_info.default_arguments.append_array(p_function->default_arg_values);
 	method_info.return_val = p_function->get_datatype().to_property_info("");
@@ -1990,7 +1990,7 @@ void RuztaAnalyzer::resolve_function_signature(RuztaParser::FunctionNode *p_func
 	static_context = previous_static_context;
 }
 
-void RuztaAnalyzer::resolve_function_body(RuztaParser::FunctionNode *p_function, bool p_is_lambda) {
+void RuztaAnalyzer::resolve_function_body(RuztaParser::FunctionNode* p_function, bool p_is_lambda) {
 	if (p_function->resolved_body) {
 		return;
 	}
@@ -2012,7 +2012,7 @@ void RuztaAnalyzer::resolve_function_body(RuztaParser::FunctionNode *p_function,
 		}
 	}
 
-	RuztaParser::FunctionNode *previous_function = parser->current_function;
+	RuztaParser::FunctionNode* previous_function = parser->current_function;
 	parser->current_function = p_function;
 
 	bool previous_static_context = static_context;
@@ -2033,7 +2033,7 @@ void RuztaAnalyzer::resolve_function_body(RuztaParser::FunctionNode *p_function,
 	static_context = previous_static_context;
 }
 
-void RuztaAnalyzer::decide_suite_type(RuztaParser::Node *p_suite, RuztaParser::Node *p_statement) {
+void RuztaAnalyzer::decide_suite_type(RuztaParser::Node* p_suite, RuztaParser::Node* p_statement) {
 	if (p_statement == nullptr) {
 		return;
 	}
@@ -2060,13 +2060,13 @@ void RuztaAnalyzer::decide_suite_type(RuztaParser::Node *p_suite, RuztaParser::N
 	}
 }
 
-void RuztaAnalyzer::resolve_suite(RuztaParser::SuiteNode *p_suite) {
+void RuztaAnalyzer::resolve_suite(RuztaParser::SuiteNode* p_suite) {
 	for (int i = 0; i < p_suite->statements.size(); i++) {
-		RuztaParser::Node *stmt = p_suite->statements[i];
+		RuztaParser::Node* stmt = p_suite->statements[i];
 		// Apply annotations.
-		for (RuztaParser::AnnotationNode *&E : stmt->annotations) {
+		for (RuztaParser::AnnotationNode*& E : stmt->annotations) {
 			resolve_annotation(E);
-			E->apply(parser, stmt, nullptr); // TODO: Provide `p_class`.
+			E->apply(parser, stmt, nullptr);  // TODO: Provide `p_class`.
 		}
 
 		resolve_node(stmt);
@@ -2075,7 +2075,7 @@ void RuztaAnalyzer::resolve_suite(RuztaParser::SuiteNode *p_suite) {
 	}
 }
 
-void RuztaAnalyzer::resolve_assignable(RuztaParser::AssignableNode *p_assignable, const char *p_kind) {
+void RuztaAnalyzer::resolve_assignable(RuztaParser::AssignableNode* p_assignable, const char* p_kind) {
 	RuztaParser::DataType type;
 	type.kind = RuztaParser::DataType::VARIANT;
 
@@ -2084,11 +2084,11 @@ void RuztaAnalyzer::resolve_assignable(RuztaParser::AssignableNode *p_assignable
 #ifdef DEBUG_ENABLED
 	if (p_assignable->identifier != nullptr && p_assignable->identifier->suite != nullptr && p_assignable->identifier->suite->parent_block != nullptr) {
 		if (p_assignable->identifier->suite->parent_block->has_local(p_assignable->identifier->name)) {
-			const RuztaParser::SuiteNode::Local &local = p_assignable->identifier->suite->parent_block->get_local(p_assignable->identifier->name);
+			const RuztaParser::SuiteNode::Local& local = p_assignable->identifier->suite->parent_block->get_local(p_assignable->identifier->name);
 			parser->push_warning(p_assignable->identifier, RuztaWarning::CONFUSABLE_LOCAL_DECLARATION, local.get_name(), p_assignable->identifier->name);
 		}
 	}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 
 	RuztaParser::DataType specified_type;
 	bool has_specified_type = p_assignable->datatype_specifier != nullptr;
@@ -2101,12 +2101,12 @@ void RuztaAnalyzer::resolve_assignable(RuztaParser::AssignableNode *p_assignable
 		reduce_expression(p_assignable->initializer);
 
 		if (p_assignable->initializer->type == RuztaParser::Node::ARRAY) {
-			RuztaParser::ArrayNode *array = static_cast<RuztaParser::ArrayNode *>(p_assignable->initializer);
+			RuztaParser::ArrayNode* array = static_cast<RuztaParser::ArrayNode*>(p_assignable->initializer);
 			if (has_specified_type && specified_type.has_container_element_type(0)) {
 				update_array_literal_element_type(array, specified_type.get_container_element_type(0));
 			}
 		} else if (p_assignable->initializer->type == RuztaParser::Node::DICTIONARY) {
-			RuztaParser::DictionaryNode *dictionary = static_cast<RuztaParser::DictionaryNode *>(p_assignable->initializer);
+			RuztaParser::DictionaryNode* dictionary = static_cast<RuztaParser::DictionaryNode*>(p_assignable->initializer);
 			if (has_specified_type && specified_type.has_container_element_types()) {
 				update_dictionary_literal_element_type(dictionary, specified_type.get_container_element_type_or_variant(0), specified_type.get_container_element_type_or_variant(1));
 			}
@@ -2138,7 +2138,7 @@ void RuztaAnalyzer::resolve_assignable(RuztaParser::AssignableNode *p_assignable
 			if (initializer_type.is_hard_type() && initializer_type.is_variant()) {
 				parser->push_warning(p_assignable, RuztaWarning::INFERENCE_ON_VARIANT, p_kind);
 			}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 		} else {
 			if (!initializer_type.is_set()) {
 				push_error(vformat(R"(Could not resolve type for %s "%s".)", p_kind, p_assignable->identifier->name), p_assignable->initializer);
@@ -2176,7 +2176,7 @@ void RuztaAnalyzer::resolve_assignable(RuztaParser::AssignableNode *p_assignable
 #ifdef DEBUG_ENABLED
 			} else if (specified_type.builtin_type == Variant::INT && initializer_type.builtin_type == Variant::FLOAT) {
 				parser->push_warning(p_assignable->initializer, RuztaWarning::NARROWING_CONVERSION);
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 			}
 		}
 	}
@@ -2198,7 +2198,7 @@ void RuztaAnalyzer::resolve_assignable(RuztaParser::AssignableNode *p_assignable
 	} else if (!is_parameter && specified_type.kind == RuztaParser::DataType::ENUM && p_assignable->initializer == nullptr) {
 		// Warn about enum variables without default value. Unless the enum defines the "0" value, then it's fine.
 		bool has_zero_value = false;
-		for (const KeyValue<StringName, int64_t> &kv : specified_type.enum_values) {
+		for (const KeyValue<StringName, int64_t>& kv : specified_type.enum_values) {
 			if (kv.value == 0) {
 				has_zero_value = true;
 				break;
@@ -2208,15 +2208,15 @@ void RuztaAnalyzer::resolve_assignable(RuztaParser::AssignableNode *p_assignable
 			parser->push_warning(p_assignable, RuztaWarning::ENUM_VARIABLE_WITHOUT_DEFAULT, p_assignable->identifier->name);
 		}
 	}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 
 	type.is_constant = is_constant;
 	type.is_read_only = false;
 	p_assignable->set_datatype(type);
 }
 
-void RuztaAnalyzer::resolve_variable(RuztaParser::VariableNode *p_variable, bool p_is_local) {
-	static constexpr const char *kind = "variable";
+void RuztaAnalyzer::resolve_variable(RuztaParser::VariableNode* p_variable, bool p_is_local) {
+	static constexpr const char* kind = "variable";
 	resolve_assignable(p_variable, kind);
 
 #ifdef DEBUG_ENABLED
@@ -2226,11 +2226,11 @@ void RuztaAnalyzer::resolve_variable(RuztaParser::VariableNode *p_variable, bool
 		}
 	}
 	is_shadowing(p_variable->identifier, kind, p_is_local);
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 }
 
-void RuztaAnalyzer::resolve_constant(RuztaParser::ConstantNode *p_constant, bool p_is_local) {
-	static constexpr const char *kind = "constant";
+void RuztaAnalyzer::resolve_constant(RuztaParser::ConstantNode* p_constant, bool p_is_local) {
+	static constexpr const char* kind = "constant";
 	resolve_assignable(p_constant, kind);
 
 #ifdef DEBUG_ENABLED
@@ -2240,15 +2240,15 @@ void RuztaAnalyzer::resolve_constant(RuztaParser::ConstantNode *p_constant, bool
 		}
 	}
 	is_shadowing(p_constant->identifier, kind, p_is_local);
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 }
 
-void RuztaAnalyzer::resolve_parameter(RuztaParser::ParameterNode *p_parameter) {
-	static constexpr const char *kind = "parameter";
+void RuztaAnalyzer::resolve_parameter(RuztaParser::ParameterNode* p_parameter) {
+	static constexpr const char* kind = "parameter";
 	resolve_assignable(p_parameter, kind);
 }
 
-void RuztaAnalyzer::resolve_if(RuztaParser::IfNode *p_if) {
+void RuztaAnalyzer::resolve_if(RuztaParser::IfNode* p_if) {
 	reduce_expression(p_if->condition);
 
 	resolve_suite(p_if->true_block);
@@ -2260,7 +2260,7 @@ void RuztaAnalyzer::resolve_if(RuztaParser::IfNode *p_if) {
 	}
 }
 
-void RuztaAnalyzer::resolve_for(RuztaParser::ForNode *p_for) {
+void RuztaAnalyzer::resolve_for(RuztaParser::ForNode* p_for) {
 	RuztaParser::DataType variable_type;
 	RuztaParser::DataType list_type;
 
@@ -2269,9 +2269,9 @@ void RuztaAnalyzer::resolve_for(RuztaParser::ForNode *p_for) {
 
 		bool is_range = false;
 		if (p_for->list->type == RuztaParser::Node::CALL) {
-			RuztaParser::CallNode *call = static_cast<RuztaParser::CallNode *>(p_for->list);
+			RuztaParser::CallNode* call = static_cast<RuztaParser::CallNode*>(p_for->list);
 			if (call->get_callee_type() == RuztaParser::Node::IDENTIFIER) {
-				if (static_cast<RuztaParser::IdentifierNode *>(call->callee)->name == String("range")) {
+				if (static_cast<RuztaParser::IdentifierNode*>(call->callee)->name == String("range")) {
 					if (call->arguments.is_empty()) {
 						push_error(R"*(Invalid call for "range()" function. Expected at least 1 argument, none given.)*", call);
 					} else if (call->arguments.size() > 3) {
@@ -2353,9 +2353,9 @@ void RuztaAnalyzer::resolve_for(RuztaParser::ForNode *p_for) {
 				}
 				if (p_for->list) {
 					if (p_for->list->type == RuztaParser::Node::ARRAY) {
-						update_array_literal_element_type(static_cast<RuztaParser::ArrayNode *>(p_for->list), specified_type);
+						update_array_literal_element_type(static_cast<RuztaParser::ArrayNode*>(p_for->list), specified_type);
 					} else if (p_for->list->type == RuztaParser::Node::DICTIONARY) {
-						update_dictionary_literal_element_type(static_cast<RuztaParser::DictionaryNode *>(p_for->list), specified_type, RuztaParser::DataType::get_variant_type());
+						update_dictionary_literal_element_type(static_cast<RuztaParser::DictionaryNode*>(p_for->list), specified_type, RuztaParser::DataType::get_variant_type());
 					}
 				}
 			}
@@ -2368,7 +2368,7 @@ void RuztaAnalyzer::resolve_for(RuztaParser::ForNode *p_for) {
 			} else {
 				parser->push_warning(p_for->variable, RuztaWarning::UNTYPED_DECLARATION, R"("for" iterator variable)", p_for->variable->name);
 			}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 		}
 	}
 
@@ -2378,17 +2378,17 @@ void RuztaAnalyzer::resolve_for(RuztaParser::ForNode *p_for) {
 	if (p_for->variable) {
 		is_shadowing(p_for->variable, R"("for" iterator variable)", true);
 	}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 }
 
-void RuztaAnalyzer::resolve_while(RuztaParser::WhileNode *p_while) {
+void RuztaAnalyzer::resolve_while(RuztaParser::WhileNode* p_while) {
 	resolve_node(p_while->condition, false);
 
 	resolve_suite(p_while->loop);
 	p_while->set_datatype(p_while->loop->get_datatype());
 }
 
-void RuztaAnalyzer::resolve_assert(RuztaParser::AssertNode *p_assert) {
+void RuztaAnalyzer::resolve_assert(RuztaParser::AssertNode* p_assert) {
 	reduce_expression(p_assert->condition);
 	if (p_assert->message != nullptr) {
 		reduce_expression(p_assert->message);
@@ -2403,14 +2403,14 @@ void RuztaAnalyzer::resolve_assert(RuztaParser::AssertNode *p_assert) {
 	if (p_assert->condition->is_constant) {
 		if (p_assert->condition->reduced_value.booleanize()) {
 			parser->push_warning(p_assert->condition, RuztaWarning::ASSERT_ALWAYS_TRUE);
-		} else if (!(p_assert->condition->type == RuztaParser::Node::LITERAL && static_cast<RuztaParser::LiteralNode *>(p_assert->condition)->value.get_type() == Variant::BOOL)) {
+		} else if (!(p_assert->condition->type == RuztaParser::Node::LITERAL && static_cast<RuztaParser::LiteralNode*>(p_assert->condition)->value.get_type() == Variant::BOOL)) {
 			parser->push_warning(p_assert->condition, RuztaWarning::ASSERT_ALWAYS_FALSE);
 		}
 	}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 }
 
-void RuztaAnalyzer::resolve_match(RuztaParser::MatchNode *p_match) {
+void RuztaAnalyzer::resolve_match(RuztaParser::MatchNode* p_match) {
 	reduce_expression(p_match->test);
 
 	for (int i = 0; i < p_match->branches.size(); i++) {
@@ -2420,11 +2420,11 @@ void RuztaAnalyzer::resolve_match(RuztaParser::MatchNode *p_match) {
 	}
 }
 
-void RuztaAnalyzer::resolve_match_branch(RuztaParser::MatchBranchNode *p_match_branch, RuztaParser::ExpressionNode *p_match_test) {
+void RuztaAnalyzer::resolve_match_branch(RuztaParser::MatchBranchNode* p_match_branch, RuztaParser::ExpressionNode* p_match_test) {
 	// Apply annotations.
-	for (RuztaParser::AnnotationNode *&E : p_match_branch->annotations) {
+	for (RuztaParser::AnnotationNode*& E : p_match_branch->annotations) {
 		resolve_annotation(E);
-		E->apply(parser, p_match_branch, nullptr); // TODO: Provide `p_class`.
+		E->apply(parser, p_match_branch, nullptr);	// TODO: Provide `p_class`.
 	}
 
 	for (int i = 0; i < p_match_branch->patterns.size(); i++) {
@@ -2440,7 +2440,7 @@ void RuztaAnalyzer::resolve_match_branch(RuztaParser::MatchBranchNode *p_match_b
 	decide_suite_type(p_match_branch, p_match_branch->block);
 }
 
-void RuztaAnalyzer::resolve_match_pattern(RuztaParser::PatternNode *p_match_pattern, RuztaParser::ExpressionNode *p_match_test) {
+void RuztaAnalyzer::resolve_match_pattern(RuztaParser::PatternNode* p_match_pattern, RuztaParser::ExpressionNode* p_match_test) {
 	if (p_match_pattern == nullptr) {
 		return;
 	}
@@ -2456,12 +2456,12 @@ void RuztaAnalyzer::resolve_match_pattern(RuztaParser::PatternNode *p_match_patt
 			break;
 		case RuztaParser::PatternNode::PT_EXPRESSION:
 			if (p_match_pattern->expression) {
-				RuztaParser::ExpressionNode *expr = p_match_pattern->expression;
+				RuztaParser::ExpressionNode* expr = p_match_pattern->expression;
 				reduce_expression(expr);
 				result = expr->get_datatype();
 				if (!expr->is_constant) {
 					while (expr && expr->type == RuztaParser::Node::SUBSCRIPT) {
-						RuztaParser::SubscriptNode *sub = static_cast<RuztaParser::SubscriptNode *>(expr);
+						RuztaParser::SubscriptNode* sub = static_cast<RuztaParser::SubscriptNode*>(expr);
 						if (!sub->is_attribute) {
 							expr = nullptr;
 						} else {
@@ -2486,7 +2486,7 @@ void RuztaAnalyzer::resolve_match_pattern(RuztaParser::PatternNode *p_match_patt
 			if (p_match_pattern->bind->usages == 0 && !String(p_match_pattern->bind->name).begins_with("_")) {
 				parser->push_warning(p_match_pattern->bind, RuztaWarning::UNUSED_VARIABLE, p_match_pattern->bind->name);
 			}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 			break;
 		case RuztaParser::PatternNode::PT_ARRAY:
 			for (int i = 0; i < p_match_pattern->array.size(); i++) {
@@ -2520,7 +2520,7 @@ void RuztaAnalyzer::resolve_match_pattern(RuztaParser::PatternNode *p_match_patt
 	p_match_pattern->set_datatype(result);
 }
 
-void RuztaAnalyzer::resolve_return(RuztaParser::ReturnNode *p_return) {
+void RuztaAnalyzer::resolve_return(RuztaParser::ReturnNode* p_return) {
 	RuztaParser::DataType result;
 
 	RuztaParser::DataType expected_type;
@@ -2534,19 +2534,19 @@ void RuztaAnalyzer::resolve_return(RuztaParser::ReturnNode *p_return) {
 		bool is_call = p_return->return_value->type == RuztaParser::Node::CALL;
 		if (is_void_function && is_call) {
 			// Pretend the call is a root expression to allow those that are "void".
-			reduce_call(static_cast<RuztaParser::CallNode *>(p_return->return_value), false, true);
+			reduce_call(static_cast<RuztaParser::CallNode*>(p_return->return_value), false, true);
 		} else {
 			reduce_expression(p_return->return_value);
 		}
 		if (is_void_function) {
 			p_return->void_return = true;
-			const RuztaParser::DataType &return_type = p_return->return_value->datatype;
+			const RuztaParser::DataType& return_type = p_return->return_value->datatype;
 			if (is_call && !return_type.is_hard_type()) {
 				String function_name = parser->current_function->identifier ? parser->current_function->identifier->name.operator String() : String("<anonymous function>");
-				String called_function_name = static_cast<RuztaParser::CallNode *>(p_return->return_value)->function_name.operator String();
+				String called_function_name = static_cast<RuztaParser::CallNode*>(p_return->return_value)->function_name.operator String();
 #ifdef DEBUG_ENABLED
 				parser->push_warning(p_return, RuztaWarning::UNSAFE_VOID_RETURN, function_name, called_function_name);
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 				mark_node_unsafe(p_return);
 			} else if (!is_call) {
 				push_error("A void function cannot return a value.", p_return);
@@ -2557,10 +2557,10 @@ void RuztaAnalyzer::resolve_return(RuztaParser::ReturnNode *p_return) {
 			result.is_constant = true;
 		} else {
 			if (p_return->return_value->type == RuztaParser::Node::ARRAY && has_expected_type && expected_type.has_container_element_type(0)) {
-				update_array_literal_element_type(static_cast<RuztaParser::ArrayNode *>(p_return->return_value), expected_type.get_container_element_type(0));
+				update_array_literal_element_type(static_cast<RuztaParser::ArrayNode*>(p_return->return_value), expected_type.get_container_element_type(0));
 			} else if (p_return->return_value->type == RuztaParser::Node::DICTIONARY && has_expected_type && expected_type.has_container_element_types()) {
-				update_dictionary_literal_element_type(static_cast<RuztaParser::DictionaryNode *>(p_return->return_value),
-						expected_type.get_container_element_type_or_variant(0), expected_type.get_container_element_type_or_variant(1));
+				update_dictionary_literal_element_type(static_cast<RuztaParser::DictionaryNode*>(p_return->return_value),
+													   expected_type.get_container_element_type_or_variant(0), expected_type.get_container_element_type_or_variant(1));
 			}
 			if (has_expected_type && expected_type.is_hard_type() && p_return->return_value->is_constant) {
 				update_const_expression_builtin_type(p_return->return_value, expected_type, "return");
@@ -2589,14 +2589,14 @@ void RuztaAnalyzer::resolve_return(RuztaParser::ReturnNode *p_return) {
 #ifdef DEBUG_ENABLED
 		} else if (expected_type.builtin_type == Variant::INT && result.builtin_type == Variant::FLOAT) {
 			parser->push_warning(p_return, RuztaWarning::NARROWING_CONVERSION);
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 		}
 	}
 
 	p_return->set_datatype(result);
 }
 
-void RuztaAnalyzer::reduce_expression(RuztaParser::ExpressionNode *p_expression, bool p_is_root) {
+void RuztaAnalyzer::reduce_expression(RuztaParser::ExpressionNode* p_expression, bool p_is_root) {
 	// This one makes some magic happen.
 
 	if (p_expression == nullptr) {
@@ -2612,55 +2612,55 @@ void RuztaAnalyzer::reduce_expression(RuztaParser::ExpressionNode *p_expression,
 
 	switch (p_expression->type) {
 		case RuztaParser::Node::ARRAY:
-			reduce_array(static_cast<RuztaParser::ArrayNode *>(p_expression));
+			reduce_array(static_cast<RuztaParser::ArrayNode*>(p_expression));
 			break;
 		case RuztaParser::Node::ASSIGNMENT:
-			reduce_assignment(static_cast<RuztaParser::AssignmentNode *>(p_expression));
+			reduce_assignment(static_cast<RuztaParser::AssignmentNode*>(p_expression));
 			break;
 		case RuztaParser::Node::AWAIT:
-			reduce_await(static_cast<RuztaParser::AwaitNode *>(p_expression));
+			reduce_await(static_cast<RuztaParser::AwaitNode*>(p_expression));
 			break;
 		case RuztaParser::Node::BINARY_OPERATOR:
-			reduce_binary_op(static_cast<RuztaParser::BinaryOpNode *>(p_expression));
+			reduce_binary_op(static_cast<RuztaParser::BinaryOpNode*>(p_expression));
 			break;
 		case RuztaParser::Node::CALL:
-			reduce_call(static_cast<RuztaParser::CallNode *>(p_expression), false, p_is_root);
+			reduce_call(static_cast<RuztaParser::CallNode*>(p_expression), false, p_is_root);
 			break;
 		case RuztaParser::Node::CAST:
-			reduce_cast(static_cast<RuztaParser::CastNode *>(p_expression));
+			reduce_cast(static_cast<RuztaParser::CastNode*>(p_expression));
 			break;
 		case RuztaParser::Node::DICTIONARY:
-			reduce_dictionary(static_cast<RuztaParser::DictionaryNode *>(p_expression));
+			reduce_dictionary(static_cast<RuztaParser::DictionaryNode*>(p_expression));
 			break;
 		case RuztaParser::Node::GET_NODE:
-			reduce_get_node(static_cast<RuztaParser::GetNodeNode *>(p_expression));
+			reduce_get_node(static_cast<RuztaParser::GetNodeNode*>(p_expression));
 			break;
 		case RuztaParser::Node::IDENTIFIER:
-			reduce_identifier(static_cast<RuztaParser::IdentifierNode *>(p_expression));
+			reduce_identifier(static_cast<RuztaParser::IdentifierNode*>(p_expression));
 			break;
 		case RuztaParser::Node::LAMBDA:
-			reduce_lambda(static_cast<RuztaParser::LambdaNode *>(p_expression));
+			reduce_lambda(static_cast<RuztaParser::LambdaNode*>(p_expression));
 			break;
 		case RuztaParser::Node::LITERAL:
-			reduce_literal(static_cast<RuztaParser::LiteralNode *>(p_expression));
+			reduce_literal(static_cast<RuztaParser::LiteralNode*>(p_expression));
 			break;
 		case RuztaParser::Node::PRELOAD:
-			reduce_preload(static_cast<RuztaParser::PreloadNode *>(p_expression));
+			reduce_preload(static_cast<RuztaParser::PreloadNode*>(p_expression));
 			break;
 		case RuztaParser::Node::SELF:
-			reduce_self(static_cast<RuztaParser::SelfNode *>(p_expression));
+			reduce_self(static_cast<RuztaParser::SelfNode*>(p_expression));
 			break;
 		case RuztaParser::Node::SUBSCRIPT:
-			reduce_subscript(static_cast<RuztaParser::SubscriptNode *>(p_expression));
+			reduce_subscript(static_cast<RuztaParser::SubscriptNode*>(p_expression));
 			break;
 		case RuztaParser::Node::TERNARY_OPERATOR:
-			reduce_ternary_op(static_cast<RuztaParser::TernaryOpNode *>(p_expression), p_is_root);
+			reduce_ternary_op(static_cast<RuztaParser::TernaryOpNode*>(p_expression), p_is_root);
 			break;
 		case RuztaParser::Node::TYPE_TEST:
-			reduce_type_test(static_cast<RuztaParser::TypeTestNode *>(p_expression));
+			reduce_type_test(static_cast<RuztaParser::TypeTestNode*>(p_expression));
 			break;
 		case RuztaParser::Node::UNARY_OPERATOR:
-			reduce_unary_op(static_cast<RuztaParser::UnaryOpNode *>(p_expression));
+			reduce_unary_op(static_cast<RuztaParser::UnaryOpNode*>(p_expression));
 			break;
 		// Non-expressions. Here only to make sure new nodes aren't forgotten.
 		case RuztaParser::Node::NONE:
@@ -2698,9 +2698,9 @@ void RuztaAnalyzer::reduce_expression(RuztaParser::ExpressionNode *p_expression,
 	}
 }
 
-void RuztaAnalyzer::reduce_array(RuztaParser::ArrayNode *p_array) {
+void RuztaAnalyzer::reduce_array(RuztaParser::ArrayNode* p_array) {
 	for (int i = 0; i < p_array->elements.size(); i++) {
-		RuztaParser::ExpressionNode *element = p_array->elements[i];
+		RuztaParser::ExpressionNode* element = p_array->elements[i];
 		reduce_expression(element);
 	}
 
@@ -2716,16 +2716,16 @@ void RuztaAnalyzer::reduce_array(RuztaParser::ArrayNode *p_array) {
 
 #ifdef DEBUG_ENABLED
 static bool enum_has_value(const RuztaParser::DataType p_type, int64_t p_value) {
-	for (const KeyValue<StringName, int64_t> &E : p_type.enum_values) {
+	for (const KeyValue<StringName, int64_t>& E : p_type.enum_values) {
 		if (E.value == p_value) {
 			return true;
 		}
 	}
 	return false;
 }
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 
-void RuztaAnalyzer::update_const_expression_builtin_type(RuztaParser::ExpressionNode *p_expression, const RuztaParser::DataType &p_type, const char *p_usage, bool p_is_cast) {
+void RuztaAnalyzer::update_const_expression_builtin_type(RuztaParser::ExpressionNode* p_expression, const RuztaParser::DataType& p_type, const char* p_usage, bool p_is_cast) {
 	if (p_expression->get_datatype() == p_type) {
 		return;
 	}
@@ -2750,7 +2750,7 @@ void RuztaAnalyzer::update_const_expression_builtin_type(RuztaParser::Expression
 	if (p_type.kind == RuztaParser::DataType::ENUM && value_type.builtin_type == Variant::INT && !enum_has_value(p_type, p_expression->reduced_value)) {
 		parser->push_warning(p_expression, RuztaWarning::INT_AS_ENUM_WITHOUT_MATCH, p_usage, p_expression->reduced_value.stringify(), p_type.to_string());
 	}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 
 	if (value_type.builtin_type == p_type.builtin_type) {
 		p_expression->set_datatype(p_type);
@@ -2758,7 +2758,7 @@ void RuztaAnalyzer::update_const_expression_builtin_type(RuztaParser::Expression
 	}
 
 	Variant converted_to;
-	const Variant *converted_from = &p_expression->reduced_value;
+	const Variant* converted_from = &p_expression->reduced_value;
 	GDExtensionCallError call_error;
 	RuztaVariantExtension::construct(p_type.builtin_type, converted_to, &converted_from, 1, call_error);
 	if (call_error.error) {
@@ -2770,7 +2770,7 @@ void RuztaAnalyzer::update_const_expression_builtin_type(RuztaParser::Expression
 	if (p_type.builtin_type == Variant::INT && value_type.builtin_type == Variant::FLOAT) {
 		parser->push_warning(p_expression, RuztaWarning::NARROWING_CONVERSION);
 	}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 
 	p_expression->reduced_value = converted_to;
 	p_expression->set_datatype(p_type);
@@ -2778,16 +2778,16 @@ void RuztaAnalyzer::update_const_expression_builtin_type(RuztaParser::Expression
 
 // When an array literal is stored (or passed as function argument) to a typed context, we then assume the array is typed.
 // This function determines which type is that (if any).
-void RuztaAnalyzer::update_array_literal_element_type(RuztaParser::ArrayNode *p_array, const RuztaParser::DataType &p_element_type) {
+void RuztaAnalyzer::update_array_literal_element_type(RuztaParser::ArrayNode* p_array, const RuztaParser::DataType& p_element_type) {
 	RuztaParser::DataType expected_type = p_element_type;
-	expected_type.container_element_types.clear(); // Nested types (like `Array[Array[int]]`) are not currently supported.
+	expected_type.container_element_types.clear();	// Nested types (like `Array[Array[int]]`) are not currently supported.
 
 	for (int i = 0; i < p_array->elements.size(); i++) {
-		RuztaParser::ExpressionNode *element_node = p_array->elements[i];
+		RuztaParser::ExpressionNode* element_node = p_array->elements[i];
 		if (element_node->is_constant) {
 			update_const_expression_builtin_type(element_node, expected_type, "include");
 		}
-		const RuztaParser::DataType &actual_type = element_node->get_datatype();
+		const RuztaParser::DataType& actual_type = element_node->get_datatype();
 		if (actual_type.has_no_type() || actual_type.is_variant() || !actual_type.is_hard_type()) {
 			mark_node_unsafe(element_node);
 			continue;
@@ -2809,18 +2809,18 @@ void RuztaAnalyzer::update_array_literal_element_type(RuztaParser::ArrayNode *p_
 
 // When a dictionary literal is stored (or passed as function argument) to a typed context, we then assume the dictionary is typed.
 // This function determines which type is that (if any).
-void RuztaAnalyzer::update_dictionary_literal_element_type(RuztaParser::DictionaryNode *p_dictionary, const RuztaParser::DataType &p_key_element_type, const RuztaParser::DataType &p_value_element_type) {
+void RuztaAnalyzer::update_dictionary_literal_element_type(RuztaParser::DictionaryNode* p_dictionary, const RuztaParser::DataType& p_key_element_type, const RuztaParser::DataType& p_value_element_type) {
 	RuztaParser::DataType expected_key_type = p_key_element_type;
 	RuztaParser::DataType expected_value_type = p_value_element_type;
-	expected_key_type.container_element_types.clear(); // Nested types (like `Dictionary[String, Array[int]]`) are not currently supported.
+	expected_key_type.container_element_types.clear();	// Nested types (like `Dictionary[String, Array[int]]`) are not currently supported.
 	expected_value_type.container_element_types.clear();
 
 	for (int i = 0; i < p_dictionary->elements.size(); i++) {
-		RuztaParser::ExpressionNode *key_element_node = p_dictionary->elements[i].key;
+		RuztaParser::ExpressionNode* key_element_node = p_dictionary->elements[i].key;
 		if (key_element_node->is_constant) {
 			update_const_expression_builtin_type(key_element_node, expected_key_type, "include");
 		}
-		const RuztaParser::DataType &actual_key_type = key_element_node->get_datatype();
+		const RuztaParser::DataType& actual_key_type = key_element_node->get_datatype();
 		if (actual_key_type.has_no_type() || actual_key_type.is_variant() || !actual_key_type.is_hard_type()) {
 			mark_node_unsafe(key_element_node);
 		} else if (!is_type_compatible(expected_key_type, actual_key_type, true, p_dictionary)) {
@@ -2832,11 +2832,11 @@ void RuztaAnalyzer::update_dictionary_literal_element_type(RuztaParser::Dictiona
 			}
 		}
 
-		RuztaParser::ExpressionNode *value_element_node = p_dictionary->elements[i].value;
+		RuztaParser::ExpressionNode* value_element_node = p_dictionary->elements[i].value;
 		if (value_element_node->is_constant) {
 			update_const_expression_builtin_type(value_element_node, expected_value_type, "include");
 		}
-		const RuztaParser::DataType &actual_value_type = value_element_node->get_datatype();
+		const RuztaParser::DataType& actual_value_type = value_element_node->get_datatype();
 		if (actual_value_type.has_no_type() || actual_value_type.is_variant() || !actual_value_type.is_hard_type()) {
 			mark_node_unsafe(value_element_node);
 		} else if (!is_type_compatible(expected_value_type, actual_value_type, true, p_dictionary)) {
@@ -2855,36 +2855,36 @@ void RuztaAnalyzer::update_dictionary_literal_element_type(RuztaParser::Dictiona
 	p_dictionary->set_datatype(dictionary_type);
 }
 
-void RuztaAnalyzer::reduce_assignment(RuztaParser::AssignmentNode *p_assignment) {
+void RuztaAnalyzer::reduce_assignment(RuztaParser::AssignmentNode* p_assignment) {
 	reduce_expression(p_assignment->assigned_value);
 
 #ifdef DEBUG_ENABLED
 	// Increment assignment count for local variables.
 	// Before we reduce the assignee because we don't want to warn about not being assigned when performing the assignment.
 	if (p_assignment->assignee->type == RuztaParser::Node::IDENTIFIER) {
-		RuztaParser::IdentifierNode *id = static_cast<RuztaParser::IdentifierNode *>(p_assignment->assignee);
+		RuztaParser::IdentifierNode* id = static_cast<RuztaParser::IdentifierNode*>(p_assignment->assignee);
 		if (id->source == RuztaParser::IdentifierNode::LOCAL_VARIABLE && id->variable_source) {
 			id->variable_source->assignments++;
 		}
 	}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 
 	reduce_expression(p_assignment->assignee);
 
 #ifdef DEBUG_ENABLED
 	{
 		bool is_subscript = false;
-		RuztaParser::ExpressionNode *base = p_assignment->assignee;
+		RuztaParser::ExpressionNode* base = p_assignment->assignee;
 		while (base && base->type == RuztaParser::Node::SUBSCRIPT) {
 			is_subscript = true;
-			base = static_cast<RuztaParser::SubscriptNode *>(base)->base;
+			base = static_cast<RuztaParser::SubscriptNode*>(base)->base;
 		}
 		if (base && base->type == RuztaParser::Node::IDENTIFIER) {
-			RuztaParser::IdentifierNode *id = static_cast<RuztaParser::IdentifierNode *>(base);
+			RuztaParser::IdentifierNode* id = static_cast<RuztaParser::IdentifierNode*>(base);
 			if (current_lambda && current_lambda->captures_indices.has(id->name)) {
 				bool need_warn = false;
 				if (is_subscript) {
-					const RuztaParser::DataType &id_type = id->datatype;
+					const RuztaParser::DataType& id_type = id->datatype;
 					if (id_type.is_hard_type()) {
 						switch (id_type.kind) {
 							case RuztaParser::DataType::BUILTIN:
@@ -2907,7 +2907,7 @@ void RuztaAnalyzer::reduce_assignment(RuztaParser::AssignmentNode *p_assignment)
 			}
 		}
 	}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 
 	if (p_assignment->assigned_value == nullptr || p_assignment->assignee == nullptr) {
 		return;
@@ -2918,9 +2918,9 @@ void RuztaAnalyzer::reduce_assignment(RuztaParser::AssignmentNode *p_assignment)
 	if (assignee_type.is_constant) {
 		push_error("Cannot assign a new value to a constant.", p_assignment->assignee);
 		return;
-	} else if (p_assignment->assignee->type == RuztaParser::Node::SUBSCRIPT && static_cast<RuztaParser::SubscriptNode *>(p_assignment->assignee)->base->is_constant) {
-		const RuztaParser::DataType &base_type = static_cast<RuztaParser::SubscriptNode *>(p_assignment->assignee)->base->datatype;
-		if (base_type.kind != RuztaParser::DataType::SCRIPT && base_type.kind != RuztaParser::DataType::CLASS) { // Static variables.
+	} else if (p_assignment->assignee->type == RuztaParser::Node::SUBSCRIPT && static_cast<RuztaParser::SubscriptNode*>(p_assignment->assignee)->base->is_constant) {
+		const RuztaParser::DataType& base_type = static_cast<RuztaParser::SubscriptNode*>(p_assignment->assignee)->base->datatype;
+		if (base_type.kind != RuztaParser::DataType::SCRIPT && base_type.kind != RuztaParser::DataType::CLASS) {  // Static variables.
 			push_error("Cannot assign a new value to a constant.", p_assignment->assignee);
 			return;
 		}
@@ -2928,9 +2928,9 @@ void RuztaAnalyzer::reduce_assignment(RuztaParser::AssignmentNode *p_assignment)
 		push_error("Cannot assign a new value to a read-only property.", p_assignment->assignee);
 		return;
 	} else if (p_assignment->assignee->type == RuztaParser::Node::SUBSCRIPT) {
-		RuztaParser::SubscriptNode *sub = static_cast<RuztaParser::SubscriptNode *>(p_assignment->assignee);
+		RuztaParser::SubscriptNode* sub = static_cast<RuztaParser::SubscriptNode*>(p_assignment->assignee);
 		while (sub) {
-			const RuztaParser::DataType &base_type = sub->base->datatype;
+			const RuztaParser::DataType& base_type = sub->base->datatype;
 			if (base_type.is_hard_type() && base_type.is_read_only) {
 				if (base_type.kind == RuztaParser::DataType::BUILTIN && !RuztaVariantExtension::is_type_shared(base_type.builtin_type)) {
 					push_error("Cannot assign a new value to a read-only property.", p_assignment->assignee);
@@ -2940,7 +2940,7 @@ void RuztaAnalyzer::reduce_assignment(RuztaParser::AssignmentNode *p_assignment)
 				break;
 			}
 			if (sub->base->type == RuztaParser::Node::SUBSCRIPT) {
-				sub = static_cast<RuztaParser::SubscriptNode *>(sub->base);
+				sub = static_cast<RuztaParser::SubscriptNode*>(sub->base);
 			} else {
 				sub = nullptr;
 			}
@@ -2949,10 +2949,10 @@ void RuztaAnalyzer::reduce_assignment(RuztaParser::AssignmentNode *p_assignment)
 
 	// Check if assigned value is an array/dictionary literal, so we can make it a typed container too if appropriate.
 	if (p_assignment->assigned_value->type == RuztaParser::Node::ARRAY && assignee_type.is_hard_type() && assignee_type.has_container_element_type(0)) {
-		update_array_literal_element_type(static_cast<RuztaParser::ArrayNode *>(p_assignment->assigned_value), assignee_type.get_container_element_type(0));
+		update_array_literal_element_type(static_cast<RuztaParser::ArrayNode*>(p_assignment->assigned_value), assignee_type.get_container_element_type(0));
 	} else if (p_assignment->assigned_value->type == RuztaParser::Node::DICTIONARY && assignee_type.is_hard_type() && assignee_type.has_container_element_types()) {
-		update_dictionary_literal_element_type(static_cast<RuztaParser::DictionaryNode *>(p_assignment->assigned_value),
-				assignee_type.get_container_element_type_or_variant(0), assignee_type.get_container_element_type_or_variant(1));
+		update_dictionary_literal_element_type(static_cast<RuztaParser::DictionaryNode*>(p_assignment->assigned_value),
+											   assignee_type.get_container_element_type_or_variant(0), assignee_type.get_container_element_type_or_variant(1));
 	}
 
 	if (p_assignment->operation == RuztaParser::AssignmentNode::OP_NONE && assignee_type.is_hard_type() && p_assignment->assigned_value->is_constant) {
@@ -3050,16 +3050,16 @@ void RuztaAnalyzer::reduce_assignment(RuztaParser::AssignmentNode *p_assignment)
 	}
 	// Check for assignment with operation before assignment.
 	if (p_assignment->operation != RuztaParser::AssignmentNode::OP_NONE && p_assignment->assignee->type == RuztaParser::Node::IDENTIFIER) {
-		RuztaParser::IdentifierNode *id = static_cast<RuztaParser::IdentifierNode *>(p_assignment->assignee);
+		RuztaParser::IdentifierNode* id = static_cast<RuztaParser::IdentifierNode*>(p_assignment->assignee);
 		// Use == 1 here because this assignment was already counted in the beginning of the function.
 		if (id->source == RuztaParser::IdentifierNode::LOCAL_VARIABLE && id->variable_source && id->variable_source->assignments == 1) {
 			parser->push_warning(p_assignment, RuztaWarning::UNASSIGNED_VARIABLE_OP_ASSIGN, id->name, RuztaVariantExtension::get_operator_name(p_assignment->variant_op));
 		}
 	}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 }
 
-void RuztaAnalyzer::reduce_await(RuztaParser::AwaitNode *p_await) {
+void RuztaAnalyzer::reduce_await(RuztaParser::AwaitNode* p_await) {
 	if (p_await->to_await == nullptr) {
 		RuztaParser::DataType await_type;
 		await_type.kind = RuztaParser::DataType::VARIANT;
@@ -3068,7 +3068,7 @@ void RuztaAnalyzer::reduce_await(RuztaParser::AwaitNode *p_await) {
 	}
 
 	if (p_await->to_await->type == RuztaParser::Node::CALL) {
-		reduce_call(static_cast<RuztaParser::CallNode *>(p_await->to_await), true);
+		reduce_call(static_cast<RuztaParser::CallNode*>(p_await->to_await), true);
 	} else {
 		reduce_expression(p_await->to_await);
 	}
@@ -3090,10 +3090,10 @@ void RuztaAnalyzer::reduce_await(RuztaParser::AwaitNode *p_await) {
 	if (!to_await_type.is_coroutine && !to_await_type.is_variant() && to_await_type.builtin_type != Variant::SIGNAL) {
 		parser->push_warning(p_await, RuztaWarning::REDUNDANT_AWAIT);
 	}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 }
 
-void RuztaAnalyzer::reduce_binary_op(RuztaParser::BinaryOpNode *p_binary_op) {
+void RuztaAnalyzer::reduce_binary_op(RuztaParser::BinaryOpNode* p_binary_op) {
 	reduce_expression(p_binary_op->left_operand);
 	reduce_expression(p_binary_op->right_operand);
 
@@ -3112,15 +3112,15 @@ void RuztaAnalyzer::reduce_binary_op(RuztaParser::BinaryOpNode *p_binary_op) {
 
 #ifdef DEBUG_ENABLED
 	if (p_binary_op->variant_op == Variant::OP_DIVIDE &&
-			(left_type.builtin_type == Variant::INT ||
-					left_type.builtin_type == Variant::VECTOR2I ||
-					left_type.builtin_type == Variant::VECTOR3I ||
-					left_type.builtin_type == Variant::VECTOR4I) &&
-			(right_type.builtin_type == Variant::INT ||
-					right_type.builtin_type == left_type.builtin_type)) {
+		(left_type.builtin_type == Variant::INT ||
+		 left_type.builtin_type == Variant::VECTOR2I ||
+		 left_type.builtin_type == Variant::VECTOR3I ||
+		 left_type.builtin_type == Variant::VECTOR4I) &&
+		(right_type.builtin_type == Variant::INT ||
+		 right_type.builtin_type == left_type.builtin_type)) {
 		parser->push_warning(p_binary_op, RuztaWarning::INTEGER_DIVISION);
 	}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 
 	if (p_binary_op->left_operand->is_constant && p_binary_op->right_operand->is_constant) {
 		p_binary_op->is_constant = true;
@@ -3135,7 +3135,7 @@ void RuztaAnalyzer::reduce_binary_op(RuztaParser::BinaryOpNode *p_binary_op) {
 									   RuztaVariantExtension::get_operator_name(p_binary_op->variant_op),
 									   Variant::get_type_name(p_binary_op->left_operand->reduced_value.get_type()),
 									   Variant::get_type_name(p_binary_op->right_operand->reduced_value.get_type())),
-							p_binary_op);
+							   p_binary_op);
 				}
 			}
 		} else {
@@ -3149,7 +3149,7 @@ void RuztaAnalyzer::reduce_binary_op(RuztaParser::BinaryOpNode *p_binary_op) {
 	RuztaParser::DataType result;
 
 	if ((p_binary_op->variant_op == Variant::OP_EQUAL || p_binary_op->variant_op == Variant::OP_NOT_EQUAL) &&
-			((left_type.kind == RuztaParser::DataType::BUILTIN && left_type.builtin_type == Variant::NIL) || (right_type.kind == RuztaParser::DataType::BUILTIN && right_type.builtin_type == Variant::NIL))) {
+		((left_type.kind == RuztaParser::DataType::BUILTIN && left_type.builtin_type == Variant::NIL) || (right_type.kind == RuztaParser::DataType::BUILTIN && right_type.builtin_type == Variant::NIL))) {
 		// "==" and "!=" operators always return a boolean when comparing to null.
 		result.type_source = RuztaParser::DataType::ANNOTATED_EXPLICIT;
 		result.kind = RuztaParser::DataType::BUILTIN;
@@ -3178,16 +3178,16 @@ void RuztaAnalyzer::reduce_binary_op(RuztaParser::BinaryOpNode *p_binary_op) {
 	p_binary_op->set_datatype(result);
 }
 
-void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, bool p_is_root) {
+void RuztaAnalyzer::reduce_call(RuztaParser::CallNode* p_call, bool p_is_await, bool p_is_root) {
 	bool all_is_constant = true;
-	HashMap<int, RuztaParser::ArrayNode *> arrays; // For array literal to potentially type when passing.
-	HashMap<int, RuztaParser::DictionaryNode *> dictionaries; // Same, but for dictionaries.
+	HashMap<int, RuztaParser::ArrayNode*> arrays;			  // For array literal to potentially type when passing.
+	HashMap<int, RuztaParser::DictionaryNode*> dictionaries;  // Same, but for dictionaries.
 	for (int i = 0; i < p_call->arguments.size(); i++) {
 		reduce_expression(p_call->arguments[i]);
 		if (p_call->arguments[i]->type == RuztaParser::Node::ARRAY) {
-			arrays[i] = static_cast<RuztaParser::ArrayNode *>(p_call->arguments[i]);
+			arrays[i] = static_cast<RuztaParser::ArrayNode*>(p_call->arguments[i]);
 		} else if (p_call->arguments[i]->type == RuztaParser::Node::DICTIONARY) {
-			dictionaries[i] = static_cast<RuztaParser::DictionaryNode *>(p_call->arguments[i]);
+			dictionaries[i] = static_cast<RuztaParser::DictionaryNode*>(p_call->arguments[i]);
 		}
 		all_is_constant = all_is_constant && p_call->arguments[i]->is_constant;
 	}
@@ -3237,20 +3237,20 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 
 			if (all_is_constant && safe_to_fold) {
 				// Construct here.
-				Vector<const Variant *> args;
+				Vector<const Variant*> args;
 				for (int i = 0; i < p_call->arguments.size(); i++) {
 					args.push_back(&(p_call->arguments[i]->reduced_value));
 				}
 
 				GDExtensionCallError err;
 				Variant value;
-				RuztaVariantExtension::construct(builtin_type, value, (const Variant **)args.ptr(), args.size(), err);
+				RuztaVariantExtension::construct(builtin_type, value, (const Variant**)args.ptr(), args.size(), err);
 
 				switch (err.error) {
 					case GDExtensionCallErrorType::GDEXTENSION_CALL_ERROR_INVALID_ARGUMENT:
 						push_error(vformat(R"*(Invalid argument for "%s()" constructor: argument %d should be "%s" but is "%s".)*", Variant::get_type_name(builtin_type), err.argument + 1,
 										   Variant::get_type_name(Variant::Type(err.expected)), p_call->arguments[err.argument]->get_datatype().to_string()),
-								p_call->arguments[err.argument]);
+								   p_call->arguments[err.argument]);
 						break;
 					case GDExtensionCallErrorType::GDEXTENSION_CALL_ERROR_INVALID_METHOD: {
 						String signature = Variant::get_type_name(builtin_type) + "(";
@@ -3271,7 +3271,7 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 						break;
 					case GDExtensionCallErrorType::GDEXTENSION_CALL_ERROR_INSTANCE_IS_NULL:
 					case GDExtensionCallErrorType::GDEXTENSION_CALL_ERROR_METHOD_NOT_CONST:
-						break; // Can't happen in a builtin constructor.
+						break;	// Can't happen in a builtin constructor.
 					case GDExtensionCallErrorType::GDEXTENSION_CALL_OK:
 						p_call->is_constant = true;
 						p_call->reduced_value = value;
@@ -3307,7 +3307,7 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 							expected_types += "\", or \"" + types[types.size() - 1];
 						}
 						parser->push_warning(p_call->arguments[0], RuztaWarning::UNSAFE_CALL_ARGUMENT, "1", "constructor", function_name, expected_types, "Variant");
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 						p_call->set_datatype(call_type);
 						return;
 					}
@@ -3317,7 +3317,7 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 				RuztaVariantExtension::get_constructor_list(builtin_type, &constructors);
 				bool match = false;
 
-				for (const MethodInfo &info : constructors) {
+				for (const MethodInfo& info : constructors) {
 					if (p_call->arguments.size() < info.arguments.size() - info.default_arguments.size()) {
 						continue;
 					}
@@ -3338,7 +3338,7 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 							if (par_type.builtin_type == Variant::INT && arg_type.builtin_type == Variant::FLOAT && builtin_type != Variant::INT) {
 								parser->push_warning(p_call, RuztaWarning::NARROWING_CONVERSION, function_name);
 							}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 						}
 					}
 
@@ -3356,7 +3356,7 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 									parser->push_warning(p_call->arguments[i], RuztaWarning::UNSAFE_CALL_ARGUMENT, itos(i + 1), "constructor", function_name, par_type.to_string(), arg_type.to_string_strict());
 								}
 							}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 						}
 						match = true;
 						call_type = type_from_property(info.return_val);
@@ -3380,13 +3380,13 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 #ifdef DEBUG_ENABLED
 			// Consider `Signal(self, "my_signal")` as an implicit use of the signal.
 			if (builtin_type == Variant::SIGNAL && p_call->arguments.size() >= 2) {
-				const RuztaParser::ExpressionNode *object_arg = p_call->arguments[0];
+				const RuztaParser::ExpressionNode* object_arg = p_call->arguments[0];
 				if (object_arg && object_arg->type == RuztaParser::Node::SELF) {
-					const RuztaParser::ExpressionNode *signal_arg = p_call->arguments[1];
+					const RuztaParser::ExpressionNode* signal_arg = p_call->arguments[1];
 					if (signal_arg && signal_arg->is_constant) {
-						const StringName &signal_name = signal_arg->reduced_value;
+						const StringName& signal_name = signal_arg->reduced_value;
 						if (parser->current_class->has_member(signal_name)) {
-							const RuztaParser::ClassNode::Member &member = parser->current_class->get_member(signal_name);
+							const RuztaParser::ClassNode::Member& member = parser->current_class->get_member(signal_name);
 							if (member.type == RuztaParser::ClassNode::Member::SIGNAL) {
 								member.signal->usages++;
 							}
@@ -3394,7 +3394,7 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 					}
 				}
 			}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 
 			p_call->set_datatype(call_type);
 			return;
@@ -3407,14 +3407,14 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 
 			if (all_is_constant && RuztaUtilityFunctions::is_function_constant(function_name)) {
 				// Can call on compilation.
-				Vector<const Variant *> args;
+				Vector<const Variant*> args;
 				for (int i = 0; i < p_call->arguments.size(); i++) {
 					args.push_back(&(p_call->arguments[i]->reduced_value));
 				}
 
 				Variant value;
 				GDExtensionCallError err;
-				RuztaUtilityFunctions::get_function(function_name)(&value, (const Variant **)args.ptr(), args.size(), err);
+				RuztaUtilityFunctions::get_function(function_name)(&value, (const Variant**)args.ptr(), args.size(), err);
 
 				switch (err.error) {
 					case GDExtensionCallErrorType::GDEXTENSION_CALL_ERROR_INVALID_ARGUMENT:
@@ -3424,7 +3424,7 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 							// Do not use `type_from_property()` for expected type, since utility functions use their own checks.
 							push_error(vformat(R"*(Invalid argument for "%s()" function: argument %d should be "%s" but is "%s".)*", function_name, err.argument + 1,
 											   Variant::get_type_name((Variant::Type)err.expected), p_call->arguments[err.argument]->get_datatype().to_string()),
-									p_call->arguments[err.argument]);
+									   p_call->arguments[err.argument]);
 						}
 						break;
 					case GDExtensionCallErrorType::GDEXTENSION_CALL_ERROR_INVALID_METHOD:
@@ -3438,7 +3438,7 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 						break;
 					case GDExtensionCallErrorType::GDEXTENSION_CALL_ERROR_METHOD_NOT_CONST:
 					case GDExtensionCallErrorType::GDEXTENSION_CALL_ERROR_INSTANCE_IS_NULL:
-						break; // Can't happen in a builtin constructor.
+						break;	// Can't happen in a builtin constructor.
 					case GDExtensionCallErrorType::GDEXTENSION_CALL_OK:
 						p_call->is_constant = true;
 						p_call->reduced_value = value;
@@ -3458,14 +3458,14 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 
 			if (all_is_constant && RuztaVariantExtension::get_utility_function_type(function_name) == RuztaVariantExtension::UTILITY_FUNC_TYPE_MATH) {
 				// Can call on compilation.
-				Vector<const Variant *> args;
+				Vector<const Variant*> args;
 				for (int i = 0; i < p_call->arguments.size(); i++) {
 					args.push_back(&(p_call->arguments[i]->reduced_value));
 				}
 
 				Variant value;
 				GDExtensionCallError err;
-				RuztaVariantExtension::call_utility_function(function_name, &value, (const Variant **)args.ptr(), args.size(), err);
+				RuztaVariantExtension::call_utility_function(function_name, &value, (const Variant**)args.ptr(), args.size(), err);
 
 				switch (err.error) {
 					case GDExtensionCallErrorType::GDEXTENSION_CALL_ERROR_INVALID_ARGUMENT:
@@ -3475,7 +3475,7 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 							// Do not use `type_from_property()` for expected type, since utility functions use their own checks.
 							push_error(vformat(R"*(Invalid argument for "%s()" function: argument %d should be "%s" but is "%s".)*", function_name, err.argument + 1,
 											   Variant::get_type_name((Variant::Type)err.expected), p_call->arguments[err.argument]->get_datatype().to_string()),
-									p_call->arguments[err.argument]);
+									   p_call->arguments[err.argument]);
 						}
 						break;
 					case GDExtensionCallErrorType::GDEXTENSION_CALL_ERROR_INVALID_METHOD:
@@ -3489,7 +3489,7 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 						break;
 					case GDExtensionCallErrorType::GDEXTENSION_CALL_ERROR_METHOD_NOT_CONST:
 					case GDExtensionCallErrorType::GDEXTENSION_CALL_ERROR_INSTANCE_IS_NULL:
-						break; // Can't happen in a builtin constructor.
+						break;	// Can't happen in a builtin constructor.
 					case GDExtensionCallErrorType::GDEXTENSION_CALL_OK:
 						p_call->is_constant = true;
 						p_call->reduced_value = value;
@@ -3520,7 +3520,7 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 		base_type.is_meta_type = false;
 		is_self = true;
 	} else if (callee_type == RuztaParser::Node::SUBSCRIPT) {
-		RuztaParser::SubscriptNode *subscript = static_cast<RuztaParser::SubscriptNode *>(p_call->callee);
+		RuztaParser::SubscriptNode* subscript = static_cast<RuztaParser::SubscriptNode*>(p_call->callee);
 		if (subscript->base == nullptr) {
 			// Invalid syntax, error already set on parser.
 			p_call->set_datatype(call_type);
@@ -3541,9 +3541,9 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 			return;
 		}
 
-		RuztaParser::IdentifierNode *base_id = nullptr;
+		RuztaParser::IdentifierNode* base_id = nullptr;
 		if (subscript->base->type == RuztaParser::Node::IDENTIFIER) {
-			base_id = static_cast<RuztaParser::IdentifierNode *>(subscript->base);
+			base_id = static_cast<RuztaParser::IdentifierNode*>(subscript->base);
 		}
 		if (base_id && RuztaParser::get_builtin_type(base_id->name) < Variant::VARIANT_MAX) {
 			base_type = make_builtin_meta_type(RuztaParser::get_builtin_type(base_id->name));
@@ -3591,13 +3591,13 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 		}
 
 		// If the function requires typed arrays we must make literals be typed.
-		for (const KeyValue<int, RuztaParser::ArrayNode *> &E : arrays) {
+		for (const KeyValue<int, RuztaParser::ArrayNode*>& E : arrays) {
 			int index = E.key;
 			if (index < par_types.size() && par_types.get(index).is_hard_type() && par_types.get(index).has_container_element_type(0)) {
 				update_array_literal_element_type(E.value, par_types.get(index).get_container_element_type(0));
 			}
 		}
-		for (const KeyValue<int, RuztaParser::DictionaryNode *> &E : dictionaries) {
+		for (const KeyValue<int, RuztaParser::DictionaryNode*>& E : dictionaries) {
 			int index = E.key;
 			if (index < par_types.size() && par_types.get(index).is_hard_type() && par_types.get(index).has_container_element_types()) {
 				RuztaParser::DataType key = par_types.get(index).get_container_element_type_or_variant(0);
@@ -3614,7 +3614,7 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 
 		if (is_self && static_context && !p_call->is_static) {
 			// Get the parent function above any lambda.
-			RuztaParser::FunctionNode *parent_function = parser->current_function;
+			RuztaParser::FunctionNode* parent_function = parser->current_function;
 			while (parent_function && parent_function->source_lambda) {
 				parent_function = parent_function->source_lambda->parent_function;
 			}
@@ -3625,7 +3625,7 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 				push_error(vformat(R"*(Cannot call non-static function "%s()" from a static variable initializer.)*", p_call->function_name), p_call);
 			}
 		} else if (!is_self && base_type.is_meta_type && !p_call->is_static) {
-			base_type.is_meta_type = false; // For `to_string()`.
+			base_type.is_meta_type = false;	 // For `to_string()`.
 			push_error(vformat(R"*(Cannot call non-static function "%s()" on the class "%s" directly. Make an instance instead.)*", p_call->function_name, base_type.to_string()), p_call);
 		} else if (is_self && !p_call->is_static) {
 			mark_lambda_use_self();
@@ -3638,7 +3638,7 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 #ifdef DEBUG_ENABLED
 		// FIXME: No warning for built-in constructors and utilities due to early return.
 		if (p_is_root && return_type.kind != RuztaParser::DataType::UNRESOLVED && return_type.builtin_type != Variant::NIL &&
-				!(p_call->is_super && p_call->function_name == RuztaLanguage::get_singleton()->strings._init)) {
+			!(p_call->is_super && p_call->function_name == RuztaLanguage::get_singleton()->strings._init)) {
 			parser->push_warning(p_call, RuztaWarning::RETURN_VALUE_DISCARDED, p_call->function_name);
 		}
 
@@ -3650,18 +3650,18 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 
 		// Consider `emit_signal()`, `connect()`, and `disconnect()` as implicit uses of the signal.
 		if (is_self && (p_call->function_name == StringName("emit_signal") || p_call->function_name == StringName("connect") || p_call->function_name == StringName("disconnect")) && !p_call->arguments.is_empty()) {
-			const RuztaParser::ExpressionNode *signal_arg = p_call->arguments[0];
+			const RuztaParser::ExpressionNode* signal_arg = p_call->arguments[0];
 			if (signal_arg && signal_arg->is_constant) {
-				const StringName &signal_name = signal_arg->reduced_value;
+				const StringName& signal_name = signal_arg->reduced_value;
 				if (parser->current_class->has_member(signal_name)) {
-					const RuztaParser::ClassNode::Member &member = parser->current_class->get_member(signal_name);
+					const RuztaParser::ClassNode::Member& member = parser->current_class->get_member(signal_name);
 					if (member.type == RuztaParser::ClassNode::Member::SIGNAL) {
 						member.signal->usages++;
 					}
 				}
 			}
 		}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 
 		call_type = return_type;
 	} else {
@@ -3674,13 +3674,13 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 			} else {
 				push_error(vformat(R"*(The native enum "%s" does not behave like Dictionary and does not have methods of its own.)*", base_type.enum_type), p_call->callee);
 			}
-		} else if (!p_call->is_super && callee_type != RuztaParser::Node::NONE) { // Check if the name exists as something else.
-			RuztaParser::IdentifierNode *callee_id;
+		} else if (!p_call->is_super && callee_type != RuztaParser::Node::NONE) {  // Check if the name exists as something else.
+			RuztaParser::IdentifierNode* callee_id;
 			if (callee_type == RuztaParser::Node::IDENTIFIER) {
-				callee_id = static_cast<RuztaParser::IdentifierNode *>(p_call->callee);
+				callee_id = static_cast<RuztaParser::IdentifierNode*>(p_call->callee);
 			} else {
 				// Can only be attribute.
-				callee_id = static_cast<RuztaParser::SubscriptNode *>(p_call->callee)->attribute;
+				callee_id = static_cast<RuztaParser::SubscriptNode*>(p_call->callee)->attribute;
 			}
 			if (callee_id) {
 				reduce_identifier_from_base(callee_id, &base_type);
@@ -3696,7 +3696,7 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 				} else if (!is_self && !(base_type.is_hard_type() && base_type.kind == RuztaParser::DataType::BUILTIN)) {
 					parser->push_warning(p_call, RuztaWarning::UNSAFE_METHOD_ACCESS, p_call->function_name, base_type.to_string());
 					mark_node_unsafe(p_call);
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 				}
 			}
 		}
@@ -3712,7 +3712,7 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 		if (p_is_root) {
 #ifdef DEBUG_ENABLED
 			parser->push_warning(p_call, RuztaWarning::MISSING_AWAIT);
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 		} else {
 			push_error(vformat(R"*(Function "%s()" is a coroutine, so it must be called with "await".)*", p_call->function_name), p_call);
 		}
@@ -3721,7 +3721,7 @@ void RuztaAnalyzer::reduce_call(RuztaParser::CallNode *p_call, bool p_is_await, 
 	p_call->set_datatype(call_type);
 }
 
-void RuztaAnalyzer::reduce_cast(RuztaParser::CastNode *p_cast) {
+void RuztaAnalyzer::reduce_cast(RuztaParser::CastNode* p_cast) {
 	reduce_expression(p_cast->operand);
 
 	RuztaParser::DataType cast_type = type_from_metatype(resolve_datatype(p_cast->cast_type));
@@ -3741,12 +3741,12 @@ void RuztaAnalyzer::reduce_cast(RuztaParser::CastNode *p_cast) {
 	}
 
 	if (p_cast->operand->type == RuztaParser::Node::ARRAY && cast_type.has_container_element_type(0)) {
-		update_array_literal_element_type(static_cast<RuztaParser::ArrayNode *>(p_cast->operand), cast_type.get_container_element_type(0));
+		update_array_literal_element_type(static_cast<RuztaParser::ArrayNode*>(p_cast->operand), cast_type.get_container_element_type(0));
 	}
 
 	if (p_cast->operand->type == RuztaParser::Node::DICTIONARY && cast_type.has_container_element_types()) {
-		update_dictionary_literal_element_type(static_cast<RuztaParser::DictionaryNode *>(p_cast->operand),
-				cast_type.get_container_element_type_or_variant(0), cast_type.get_container_element_type_or_variant(1));
+		update_dictionary_literal_element_type(static_cast<RuztaParser::DictionaryNode*>(p_cast->operand),
+											   cast_type.get_container_element_type_or_variant(0), cast_type.get_container_element_type_or_variant(1));
 	}
 
 	if (!cast_type.is_variant()) {
@@ -3755,7 +3755,7 @@ void RuztaAnalyzer::reduce_cast(RuztaParser::CastNode *p_cast) {
 			mark_node_unsafe(p_cast);
 #ifdef DEBUG_ENABLED
 			parser->push_warning(p_cast, RuztaWarning::UNSAFE_CAST, cast_type.to_string());
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 		} else {
 			bool valid = false;
 			if (op_type.builtin_type == Variant::INT && cast_type.kind == RuztaParser::DataType::ENUM) {
@@ -3776,11 +3776,11 @@ void RuztaAnalyzer::reduce_cast(RuztaParser::CastNode *p_cast) {
 	}
 }
 
-void RuztaAnalyzer::reduce_dictionary(RuztaParser::DictionaryNode *p_dictionary) {
-	HashMap<Variant, RuztaParser::ExpressionNode *, HashMapHasherDefault, StringLikeVariantComparator> elements;
+void RuztaAnalyzer::reduce_dictionary(RuztaParser::DictionaryNode* p_dictionary) {
+	HashMap<Variant, RuztaParser::ExpressionNode*, HashMapHasherDefault, StringLikeVariantComparator> elements;
 
 	for (int i = 0; i < p_dictionary->elements.size(); i++) {
-		const RuztaParser::DictionaryNode::Pair &element = p_dictionary->elements[i];
+		const RuztaParser::DictionaryNode::Pair& element = p_dictionary->elements[i];
 		if (p_dictionary->style == RuztaParser::DictionaryNode::PYTHON_DICT) {
 			reduce_expression(element.key);
 		}
@@ -3805,7 +3805,7 @@ void RuztaAnalyzer::reduce_dictionary(RuztaParser::DictionaryNode *p_dictionary)
 	p_dictionary->set_datatype(dict_type);
 }
 
-void RuztaAnalyzer::reduce_get_node(RuztaParser::GetNodeNode *p_get_node) {
+void RuztaAnalyzer::reduce_get_node(RuztaParser::GetNodeNode* p_get_node) {
 	RuztaParser::DataType result;
 	result.kind = RuztaParser::DataType::VARIANT;
 
@@ -3830,10 +3830,10 @@ void RuztaAnalyzer::reduce_get_node(RuztaParser::GetNodeNode *p_get_node) {
 	p_get_node->set_datatype(result);
 }
 
-RuztaParser::DataType RuztaAnalyzer::make_global_class_meta_type(const StringName &p_class_name, const RuztaParser::Node *p_source) {
+RuztaParser::DataType RuztaAnalyzer::make_global_class_meta_type(const StringName& p_class_name, const RuztaParser::Node* p_source) {
 	RuztaParser::DataType type;
 
-	String path = ScriptServer::get_global_class_path(p_class_name);
+	String path = RuztaScriptServer::get_global_class_path(p_class_name);
 	String ext = path.get_extension();
 	if (ext == RuztaLanguage::get_singleton()->get_extension()) {
 		Ref<RuztaParserRef> ref = parser->get_depended_parser_for(path);
@@ -3858,7 +3858,7 @@ RuztaParser::DataType RuztaAnalyzer::make_global_class_meta_type(const StringNam
 	}
 }
 
-Ref<RuztaParserRef> RuztaAnalyzer::ensure_cached_external_parser_for_class(const RuztaParser::ClassNode *p_class, const RuztaParser::ClassNode *p_from_class, const char *p_context, const RuztaParser::Node *p_source) {
+Ref<RuztaParserRef> RuztaAnalyzer::ensure_cached_external_parser_for_class(const RuztaParser::ClassNode* p_class, const RuztaParser::ClassNode* p_from_class, const char* p_context, const RuztaParser::Node* p_source) {
 	// Delicate piece of code that intentionally doesn't use the Ruzta cache or `get_depended_parser_for`.
 	// Search dependencies for the parser that owns `p_class` and make a cache entry for it.
 	// Required for how we store pointers to classes owned by other parser trees and need to call `resolve_class_member` and such on the same parser tree.
@@ -3869,7 +3869,7 @@ Ref<RuztaParserRef> RuztaAnalyzer::ensure_cached_external_parser_for_class(const
 		return nullptr;
 	}
 
-	if (HashMap<const RuztaParser::ClassNode *, Ref<RuztaParserRef>>::Iterator E = external_class_parser_cache.find(p_class)) {
+	if (HashMap<const RuztaParser::ClassNode*, Ref<RuztaParserRef>>::Iterator E = external_class_parser_cache.find(p_class)) {
 		return E->value;
 	}
 
@@ -3882,7 +3882,7 @@ Ref<RuztaParserRef> RuztaAnalyzer::ensure_cached_external_parser_for_class(const
 	}
 
 	Ref<RuztaParserRef> parser_ref;
-	for (const RuztaParser::ClassNode *look_class = p_from_class; look_class != nullptr; look_class = look_class->base_type.class_type) {
+	for (const RuztaParser::ClassNode* look_class = p_from_class; look_class != nullptr; look_class = look_class->base_type.class_type) {
 		if (parser->has_class(look_class)) {
 			parser_ref = find_cached_external_parser_for_class(p_class, parser);
 			if (parser_ref.is_valid()) {
@@ -3890,7 +3890,7 @@ Ref<RuztaParserRef> RuztaAnalyzer::ensure_cached_external_parser_for_class(const
 			}
 		}
 
-		if (HashMap<const RuztaParser::ClassNode *, Ref<RuztaParserRef>>::Iterator E = external_class_parser_cache.find(look_class)) {
+		if (HashMap<const RuztaParser::ClassNode*, Ref<RuztaParserRef>>::Iterator E = external_class_parser_cache.find(look_class)) {
 			parser_ref = find_cached_external_parser_for_class(p_class, E->value);
 			if (parser_ref.is_valid()) {
 				break;
@@ -3916,12 +3916,12 @@ Ref<RuztaParserRef> RuztaAnalyzer::ensure_cached_external_parser_for_class(const
 	return parser_ref;
 }
 
-Ref<RuztaParserRef> RuztaAnalyzer::find_cached_external_parser_for_class(const RuztaParser::ClassNode *p_class, const Ref<RuztaParserRef> &p_dependant_parser) {
+Ref<RuztaParserRef> RuztaAnalyzer::find_cached_external_parser_for_class(const RuztaParser::ClassNode* p_class, const Ref<RuztaParserRef>& p_dependant_parser) {
 	if (p_dependant_parser.is_null()) {
 		return nullptr;
 	}
 
-	if (HashMap<const RuztaParser::ClassNode *, Ref<RuztaParserRef>>::Iterator E = p_dependant_parser->get_analyzer()->external_class_parser_cache.find(p_class)) {
+	if (HashMap<const RuztaParser::ClassNode*, Ref<RuztaParserRef>>::Iterator E = p_dependant_parser->get_analyzer()->external_class_parser_cache.find(p_class)) {
 		if (E->value.is_valid()) {
 			// Silently ensure it's parsed.
 			E->value->raise_status(RuztaParserRef::PARSED);
@@ -3940,7 +3940,7 @@ Ref<RuztaParserRef> RuztaAnalyzer::find_cached_external_parser_for_class(const R
 	return find_cached_external_parser_for_class(p_class, p_dependant_parser->get_parser());
 }
 
-Ref<RuztaParserRef> RuztaAnalyzer::find_cached_external_parser_for_class(const RuztaParser::ClassNode *p_class, RuztaParser *p_dependant_parser) {
+Ref<RuztaParserRef> RuztaAnalyzer::find_cached_external_parser_for_class(const RuztaParser::ClassNode* p_class, RuztaParser* p_dependant_parser) {
 	if (p_dependant_parser == nullptr) {
 		return nullptr;
 	}
@@ -3959,7 +3959,7 @@ Ref<RuztaParserRef> RuztaAnalyzer::find_cached_external_parser_for_class(const R
 	return nullptr;
 }
 
-Ref<Ruzta> RuztaAnalyzer::get_depended_shallow_script(const String &p_path, Error &r_error) {
+Ref<Ruzta> RuztaAnalyzer::get_depended_shallow_script(const String& p_path, Error& r_error) {
 	// To keep a local cache of the parser for resolving external nodes later.
 	const String path = ResourceUID::ensure_path(p_path);
 	parser->get_depended_parser_for(path);
@@ -3967,7 +3967,7 @@ Ref<Ruzta> RuztaAnalyzer::get_depended_shallow_script(const String &p_path, Erro
 	return scr;
 }
 
-void RuztaAnalyzer::reduce_identifier_from_base_set_class(RuztaParser::IdentifierNode *p_identifier, RuztaParser::DataType p_identifier_datatype) {
+void RuztaAnalyzer::reduce_identifier_from_base_set_class(RuztaParser::IdentifierNode* p_identifier, RuztaParser::DataType p_identifier_datatype) {
 	ERR_FAIL_NULL(p_identifier);
 
 	p_identifier->set_datatype(p_identifier_datatype);
@@ -3981,7 +3981,7 @@ void RuztaAnalyzer::reduce_identifier_from_base_set_class(RuztaParser::Identifie
 	p_identifier->is_constant = true;
 }
 
-void RuztaAnalyzer::reduce_identifier_from_base(RuztaParser::IdentifierNode *p_identifier, RuztaParser::DataType *p_base) {
+void RuztaAnalyzer::reduce_identifier_from_base(RuztaParser::IdentifierNode* p_identifier, RuztaParser::DataType* p_base) {
 	if (!p_identifier->get_datatype().has_no_type()) {
 		return;
 	}
@@ -4066,7 +4066,7 @@ void RuztaAnalyzer::reduce_identifier_from_base(RuztaParser::IdentifierNode *p_i
 					RuztaVariantExtension::construct(base.builtin_type, dummy, nullptr, 0, temp);
 					List<PropertyInfo> properties;
 					RuztaVariantExtension::get_property_list(&dummy, &properties);
-					for (const PropertyInfo &prop : properties) {
+					for (const PropertyInfo& prop : properties) {
 						if (prop.name == name) {
 							p_identifier->set_datatype(type_from_property(prop));
 							return;
@@ -4085,8 +4085,8 @@ void RuztaAnalyzer::reduce_identifier_from_base(RuztaParser::IdentifierNode *p_i
 		return;
 	}
 
-	RuztaParser::ClassNode *base_class = base.class_type;
-	List<RuztaParser::ClassNode *> script_classes;
+	RuztaParser::ClassNode* base_class = base.class_type;
+	List<RuztaParser::ClassNode*> script_classes;
 	bool is_base = true;
 
 	if (base_class != nullptr) {
@@ -4095,7 +4095,7 @@ void RuztaAnalyzer::reduce_identifier_from_base(RuztaParser::IdentifierNode *p_i
 
 	bool is_constructor = base.is_meta_type && p_identifier->name == StringName("new");
 
-	for (RuztaParser::ClassNode *script_class : script_classes) {
+	for (RuztaParser::ClassNode* script_class : script_classes) {
 		if (p_base == nullptr && script_class->identifier && script_class->identifier->name == name) {
 			reduce_identifier_from_base_set_class(p_identifier, script_class->get_datatype());
 			if (script_class->outer != nullptr) {
@@ -4188,63 +4188,63 @@ void RuztaAnalyzer::reduce_identifier_from_base(RuztaParser::IdentifierNode *p_i
 		}
 	}
 
-	// Check non-Ruzta scripts.
-	Ref<Script> script_type = base.script_type;
+	//  TODO: Check non-Ruzta scripts.
+	// Ref<Script> script_type = base.script_type;
 
-	if (base_class == nullptr && script_type.is_valid()) {
-		List<PropertyInfo> property_list;
-		script_type->get_script_property_list(&property_list);
+	// if (base_class == nullptr && script_type.is_valid()) {
+	// 	List<PropertyInfo> property_list;
+	// 	script_type->get_script_property_list(&property_list);
 
-		for (const PropertyInfo &property_info : property_list) {
-			if (property_info.name != p_identifier->name) {
-				continue;
-			}
+	// 	for (const PropertyInfo &property_info : property_list) {
+	// 		if (property_info.name != p_identifier->name) {
+	// 			continue;
+	// 		}
 
-			const RuztaParser::DataType property_type = RuztaAnalyzer::type_from_property(property_info, false, false);
+	// 		const RuztaParser::DataType property_type = RuztaAnalyzer::type_from_property(property_info, false, false);
 
-			p_identifier->set_datatype(property_type);
-			p_identifier->source = RuztaParser::IdentifierNode::MEMBER_VARIABLE;
-			return;
-		}
+	// 		p_identifier->set_datatype(property_type);
+	// 		p_identifier->source = RuztaParser::IdentifierNode::MEMBER_VARIABLE;
+	// 		return;
+	// 	}
 
-		MethodInfo method_info = script_type->get_method_info(p_identifier->name);
+	// 	MethodInfo method_info = script_type->get_method_info(p_identifier->name);
 
-		if (method_info.name == p_identifier->name) {
-			p_identifier->set_datatype(make_callable_type(method_info));
-			p_identifier->source = RuztaParser::IdentifierNode::MEMBER_FUNCTION;
-			p_identifier->function_source_is_static = method_info.flags & METHOD_FLAG_STATIC;
-			return;
-		}
+	// 	if (method_info.name == p_identifier->name) {
+	// 		p_identifier->set_datatype(make_callable_type(method_info));
+	// 		p_identifier->source = RuztaParser::IdentifierNode::MEMBER_FUNCTION;
+	// 		p_identifier->function_source_is_static = method_info.flags & METHOD_FLAG_STATIC;
+	// 		return;
+	// 	}
 
-		List<MethodInfo> signal_list;
-		script_type->get_script_signal_list(&signal_list);
+	// 	List<MethodInfo> signal_list;
+	// 	script_type->get_script_signal_list(&signal_list);
 
-		for (const MethodInfo &signal_info : signal_list) {
-			if (signal_info.name != p_identifier->name) {
-				continue;
-			}
+	// 	for (const MethodInfo &signal_info : signal_list) {
+	// 		if (signal_info.name != p_identifier->name) {
+	// 			continue;
+	// 		}
 
-			const RuztaParser::DataType signal_type = make_signal_type(signal_info);
+	// 		const RuztaParser::DataType signal_type = make_signal_type(signal_info);
 
-			p_identifier->set_datatype(signal_type);
-			p_identifier->source = RuztaParser::IdentifierNode::MEMBER_SIGNAL;
-			return;
-		}
+	// 		p_identifier->set_datatype(signal_type);
+	// 		p_identifier->source = RuztaParser::IdentifierNode::MEMBER_SIGNAL;
+	// 		return;
+	// 	}
 
-		HashMap<StringName, Variant> constant_map;
-		script_type->get_constants(&constant_map);
+	// 	HashMap<StringName, Variant> constant_map;
+	// 	script_type->get_constants(&constant_map);
 
-		if (constant_map.has(p_identifier->name)) {
-			Variant constant = constant_map.get(p_identifier->name);
+	// 	if (constant_map.has(p_identifier->name)) {
+	// 		Variant constant = constant_map.get(p_identifier->name);
 
-			p_identifier->set_datatype(make_builtin_meta_type(constant.get_type()));
-			p_identifier->source = RuztaParser::IdentifierNode::MEMBER_CONSTANT;
-			return;
-		}
-	}
+	// 		p_identifier->set_datatype(make_builtin_meta_type(constant.get_type()));
+	// 		p_identifier->source = RuztaParser::IdentifierNode::MEMBER_CONSTANT;
+	// 		return;
+	// 	}
+	// }
 
 	// Check native members. No need for native class recursion because Node exposes all Object's properties.
-	const StringName &native = base.native_type;
+	const StringName& native = base.native_type;
 
 	if (class_exists(native)) {
 		if (is_constructor) {
@@ -4254,7 +4254,7 @@ void RuztaAnalyzer::reduce_identifier_from_base(RuztaParser::IdentifierNode *p_i
 		MethodInfo method_info;
 		if (ClassDB_has_property(native, name)) {
 			StringName getter_name = ClassDB::get_property_getter(native, name);
-			MethodBind *getter = ClassDB::get_method(native, getter_name);
+			MethodBind* getter = ClassDB::get_method(native, getter_name);
 			if (getter != nullptr) {
 				bool has_setter = ClassDB::get_property_setter(native, name) != StringName();
 				p_identifier->set_datatype(type_from_property(getter->get_return_info(), false, !has_setter));
@@ -4298,13 +4298,13 @@ void RuztaAnalyzer::reduce_identifier_from_base(RuztaParser::IdentifierNode *p_i
 	}
 }
 
-void RuztaAnalyzer::reduce_identifier(RuztaParser::IdentifierNode *p_identifier, bool can_be_builtin) {
+void RuztaAnalyzer::reduce_identifier(RuztaParser::IdentifierNode* p_identifier, bool can_be_builtin) {
 	// TODO: This is an opportunity to further infer types.
 
 	// Check if we are inside an enum. This allows enum values to access other elements of the same enum.
 	if (current_enum) {
 		for (int i = 0; i < current_enum->values.size(); i++) {
-			const RuztaParser::EnumNode::Value &element = current_enum->values[i];
+			const RuztaParser::EnumNode::Value& element = current_enum->values[i];
 			if (element.identifier->name == p_identifier->name) {
 				StringName enum_name = current_enum->identifier ? current_enum->identifier->name : UNNAMED_ENUM;
 				RuztaParser::DataType type = make_class_enum_type(enum_name, parser->current_class, parser->script_path, false);
@@ -4319,7 +4319,7 @@ void RuztaAnalyzer::reduce_identifier(RuztaParser::IdentifierNode *p_identifier,
 				} else {
 					push_error(R"(Cannot use another enum element before it was declared.)", p_identifier);
 				}
-				return; // Found anyway.
+				return;	 // Found anyway.
 			}
 		}
 	}
@@ -4358,7 +4358,7 @@ void RuztaAnalyzer::reduce_identifier(RuztaParser::IdentifierNode *p_identifier,
 			if (p_identifier->variable_source && p_identifier->variable_source->assignments == 0 && !(p_identifier->get_datatype().is_hard_type() && p_identifier->get_datatype().kind == RuztaParser::DataType::BUILTIN)) {
 				parser->push_warning(p_identifier, RuztaWarning::UNASSIGNED_VARIABLE, p_identifier->name);
 			}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 			break;
 		case RuztaParser::IdentifierNode::LOCAL_ITERATOR:
 			p_identifier->set_datatype(p_identifier->bind_source->get_datatype());
@@ -4381,7 +4381,7 @@ void RuztaAnalyzer::reduce_identifier(RuztaParser::IdentifierNode *p_identifier,
 	if (!found_source && p_identifier->suite != nullptr && p_identifier->suite->has_local(p_identifier->name)) {
 		parser->push_warning(p_identifier, RuztaWarning::CONFUSABLE_LOCAL_USAGE, p_identifier->name);
 	}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 
 	// Not a local, so check members.
 
@@ -4400,7 +4400,7 @@ void RuztaAnalyzer::reduce_identifier(RuztaParser::IdentifierNode *p_identifier,
 
 		if (static_context && (source_is_instance_variable || source_is_instance_function || source_is_signal)) {
 			// Get the parent function above any lambda.
-			RuztaParser::FunctionNode *parent_function = parser->current_function;
+			RuztaParser::FunctionNode* parent_function = parser->current_function;
 			while (parent_function && parent_function->source_lambda) {
 				parent_function = parent_function->source_lambda->parent_function;
 			}
@@ -4410,7 +4410,7 @@ void RuztaAnalyzer::reduce_identifier(RuztaParser::IdentifierNode *p_identifier,
 				source_type = "non-static variable";
 			} else if (source_is_instance_function) {
 				source_type = "non-static function";
-			} else { // source_is_signal
+			} else {  // source_is_signal
 				source_type = "signal";
 			}
 
@@ -4426,7 +4426,7 @@ void RuztaAnalyzer::reduce_identifier(RuztaParser::IdentifierNode *p_identifier,
 			// we consider the lambda to be using `self`, so we keep a reference to the current instance.
 			if (source_is_instance_variable || source_is_instance_function || source_is_signal) {
 				mark_lambda_use_self();
-				return; // No need to capture.
+				return;	 // No need to capture.
 			}
 
 			switch (p_identifier->source) {
@@ -4434,8 +4434,8 @@ void RuztaAnalyzer::reduce_identifier(RuztaParser::IdentifierNode *p_identifier,
 				case RuztaParser::IdentifierNode::LOCAL_VARIABLE:
 				case RuztaParser::IdentifierNode::LOCAL_ITERATOR:
 				case RuztaParser::IdentifierNode::LOCAL_BIND:
-					break; // Need to capture.
-				case RuztaParser::IdentifierNode::UNDEFINED_SOURCE: // A global.
+					break;											 // Need to capture.
+				case RuztaParser::IdentifierNode::UNDEFINED_SOURCE:	 // A global.
 				case RuztaParser::IdentifierNode::LOCAL_CONSTANT:
 				case RuztaParser::IdentifierNode::MEMBER_VARIABLE:
 				case RuztaParser::IdentifierNode::MEMBER_CONSTANT:
@@ -4445,10 +4445,10 @@ void RuztaAnalyzer::reduce_identifier(RuztaParser::IdentifierNode *p_identifier,
 				case RuztaParser::IdentifierNode::INHERITED_VARIABLE:
 				case RuztaParser::IdentifierNode::STATIC_VARIABLE:
 				case RuztaParser::IdentifierNode::NATIVE_CLASS:
-					return; // No need to capture.
+					return;	 // No need to capture.
 			}
 
-			RuztaParser::FunctionNode *function_test = current_lambda->function;
+			RuztaParser::FunctionNode* function_test = current_lambda->function;
 			// Make sure we aren't capturing variable in the same lambda.
 			// This also add captures for nested lambdas.
 			while (function_test != nullptr && function_test != p_identifier->source_function && function_test->source_lambda != nullptr && !function_test->source_lambda->captures_indices.has(p_identifier->name)) {
@@ -4482,7 +4482,7 @@ void RuztaAnalyzer::reduce_identifier(RuztaParser::IdentifierNode *p_identifier,
 		return;
 	}
 
-	if (ScriptServer::is_global_class(name)) {
+	if (RuztaScriptServer::is_global_class(name)) {
 		p_identifier->set_datatype(make_global_class_meta_type(name, p_identifier));
 		return;
 	}
@@ -4490,7 +4490,7 @@ void RuztaAnalyzer::reduce_identifier(RuztaParser::IdentifierNode *p_identifier,
 	// Try singletons.
 	// Do this before globals because this might be a singleton loading another one before it's compiled.
 	if (ProjectSettings::get_singleton()->has_autoload(name)) {
-		const ProjectSettings::AutoloadInfo &autoload = ProjectSettings::get_singleton()->get_autoload(name);
+		const ProjectSettings::AutoloadInfo& autoload = ProjectSettings::get_singleton()->get_autoload(name);
 		if (autoload.is_singleton) {
 			// Singleton exists, so it's at least a Node.
 			RuztaParser::DataType result;
@@ -4498,7 +4498,7 @@ void RuztaAnalyzer::reduce_identifier(RuztaParser::IdentifierNode *p_identifier,
 			result.kind = RuztaParser::DataType::NATIVE;
 			result.builtin_type = Variant::OBJECT;
 			result.native_type = StringName("Node");
-			if (ResourceLoader::get_singleton()->get_resource_type(autoload.path) == "Ruzta") {
+			if (autoload.path.get_extension() == "rz" || autoload.path.get_extension() == "rzc") {
 				Ref<RuztaParserRef> single_parser = parser->get_depended_parser_for(autoload.path);
 				if (single_parser.is_valid()) {
 					Error err = single_parser->raise_status(RuztaParserRef::INHERITANCE_SOLVED);
@@ -4506,10 +4506,10 @@ void RuztaAnalyzer::reduce_identifier(RuztaParser::IdentifierNode *p_identifier,
 						result = type_from_metatype(single_parser->get_parser()->head->get_datatype());
 					}
 				}
-			} else if (ResourceLoader::get_singleton()->get_resource_type(autoload.path) == "PackedScene") {
+			} else if (ResourceLoader::get_singleton()->get_recognized_extensions_for_type("PackedScene").has(autoload.path.get_extension())) {
 				if (RuztaLanguage::get_singleton()->has_any_global_constant(name)) {
 					Variant constant = RuztaLanguage::get_singleton()->get_any_global_constant(name);
-					Node *node = Object::cast_to<Node>(constant);
+					Node* node = Object::cast_to<Node>(constant);
 					if (node != nullptr) {
 						Ref<Ruzta> scr = node->get_script();
 						if (scr.is_valid()) {
@@ -4588,10 +4588,10 @@ void RuztaAnalyzer::reduce_identifier(RuztaParser::IdentifierNode *p_identifier,
 	push_error(vformat(R"(Identifier "%s" not declared in the current scope.)", name), p_identifier);
 	RuztaParser::DataType dummy;
 	dummy.kind = RuztaParser::DataType::VARIANT;
-	p_identifier->set_datatype(dummy); // Just so type is set to something.
+	p_identifier->set_datatype(dummy);	// Just so type is set to something.
 }
 
-void RuztaAnalyzer::reduce_lambda(RuztaParser::LambdaNode *p_lambda) {
+void RuztaAnalyzer::reduce_lambda(RuztaParser::LambdaNode* p_lambda) {
 	// Lambda is always a Callable.
 	RuztaParser::DataType lambda_type;
 	lambda_type.type_source = RuztaParser::DataType::ANNOTATED_INFERRED;
@@ -4603,7 +4603,7 @@ void RuztaAnalyzer::reduce_lambda(RuztaParser::LambdaNode *p_lambda) {
 		return;
 	}
 
-	RuztaParser::LambdaNode *previous_lambda = current_lambda;
+	RuztaParser::LambdaNode* previous_lambda = current_lambda;
 	current_lambda = p_lambda;
 	resolve_function_signature(p_lambda->function, p_lambda, true);
 	current_lambda = previous_lambda;
@@ -4611,14 +4611,14 @@ void RuztaAnalyzer::reduce_lambda(RuztaParser::LambdaNode *p_lambda) {
 	pending_body_resolution_lambdas.push_back(p_lambda);
 }
 
-void RuztaAnalyzer::reduce_literal(RuztaParser::LiteralNode *p_literal) {
+void RuztaAnalyzer::reduce_literal(RuztaParser::LiteralNode* p_literal) {
 	p_literal->reduced_value = p_literal->value;
 	p_literal->is_constant = true;
 
 	p_literal->set_datatype(type_from_variant(p_literal->reduced_value, p_literal));
 }
 
-void RuztaAnalyzer::reduce_preload(RuztaParser::PreloadNode *p_preload) {
+void RuztaAnalyzer::reduce_preload(RuztaParser::PreloadNode* p_preload) {
 	if (!p_preload->path) {
 		return;
 	}
@@ -4652,8 +4652,7 @@ void RuztaAnalyzer::reduce_preload(RuztaParser::PreloadNode *p_preload) {
 
 			// Must load Ruzta separately to permit cyclic references
 			// as ResourceLoader::get_singleton()->load() detects and rejects those.
-			const String &res_type = ResourceLoader::get_singleton()->get_resource_type(p_preload->resolved_path);
-			if (res_type == "Ruzta") {
+			if (p_preload->resolved_path.get_extension() == "rz" || p_preload->resolved_path.get_extension() == "rzc" ) {
 				Error err = OK;
 				Ref<Ruzta> res = get_depended_shallow_script(p_preload->resolved_path, err);
 				p_preload->resource = res;
@@ -4683,20 +4682,20 @@ void RuztaAnalyzer::reduce_preload(RuztaParser::PreloadNode *p_preload) {
 	ensure_cached_external_parser_for_class(p_preload->get_datatype().class_type, nullptr, "Trying to resolve preload", p_preload);
 }
 
-void RuztaAnalyzer::reduce_self(RuztaParser::SelfNode *p_self) {
+void RuztaAnalyzer::reduce_self(RuztaParser::SelfNode* p_self) {
 	p_self->is_constant = false;
 	p_self->set_datatype(type_from_metatype(parser->current_class->get_datatype()));
 	mark_lambda_use_self();
 }
 
-void RuztaAnalyzer::reduce_subscript(RuztaParser::SubscriptNode *p_subscript, bool p_can_be_pseudo_type) {
+void RuztaAnalyzer::reduce_subscript(RuztaParser::SubscriptNode* p_subscript, bool p_can_be_pseudo_type) {
 	if (p_subscript->base == nullptr) {
 		return;
 	}
 	if (p_subscript->base->type == RuztaParser::Node::IDENTIFIER) {
-		reduce_identifier(static_cast<RuztaParser::IdentifierNode *>(p_subscript->base), true);
+		reduce_identifier(static_cast<RuztaParser::IdentifierNode*>(p_subscript->base), true);
 	} else if (p_subscript->base->type == RuztaParser::Node::SUBSCRIPT) {
-		reduce_subscript(static_cast<RuztaParser::SubscriptNode *>(p_subscript->base), true);
+		reduce_subscript(static_cast<RuztaParser::SubscriptNode*>(p_subscript->base), true);
 	} else {
 		reduce_expression(p_subscript->base);
 	}
@@ -4756,7 +4755,7 @@ void RuztaAnalyzer::reduce_subscript(RuztaParser::SubscriptNode *p_subscript, bo
 				// Special case: it may be a global enum with pseudo base (e.g. Variant.Type).
 				String enum_name;
 				if (p_subscript->base->type == RuztaParser::Node::IDENTIFIER) {
-					enum_name = String(static_cast<RuztaParser::IdentifierNode *>(p_subscript->base)->name) + ENUM_SEPARATOR + String(p_subscript->attribute->name);
+					enum_name = String(static_cast<RuztaParser::IdentifierNode*>(p_subscript->base)->name) + ENUM_SEPARATOR + String(p_subscript->attribute->name);
 				}
 				if (CoreConstants::is_global_enum(enum_name)) {
 					result_type = make_global_enum_type(enum_name, StringName());
@@ -4794,7 +4793,7 @@ void RuztaAnalyzer::reduce_subscript(RuztaParser::SubscriptNode *p_subscript, bo
 				if (valid) {
 					parser->push_warning(p_subscript, RuztaWarning::UNSAFE_PROPERTY_ACCESS, p_subscript->attribute->name, base_type.to_string());
 				}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 				result_type.kind = RuztaParser::DataType::VARIANT;
 				mark_node_unsafe(p_subscript);
 			}
@@ -5051,7 +5050,7 @@ void RuztaAnalyzer::reduce_subscript(RuztaParser::SubscriptNode *p_subscript, bo
 	p_subscript->set_datatype(result_type);
 }
 
-void RuztaAnalyzer::reduce_ternary_op(RuztaParser::TernaryOpNode *p_ternary_op, bool p_is_root) {
+void RuztaAnalyzer::reduce_ternary_op(RuztaParser::TernaryOpNode* p_ternary_op, bool p_is_root) {
 	reduce_expression(p_ternary_op->condition);
 	reduce_expression(p_ternary_op->true_expr, p_is_root);
 	reduce_expression(p_ternary_op->false_expr, p_is_root);
@@ -5090,7 +5089,7 @@ void RuztaAnalyzer::reduce_ternary_op(RuztaParser::TernaryOpNode *p_ternary_op, 
 				result.kind = RuztaParser::DataType::VARIANT;
 #ifdef DEBUG_ENABLED
 				parser->push_warning(p_ternary_op, RuztaWarning::INCOMPATIBLE_TERNARY);
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 			}
 		}
 	}
@@ -5099,7 +5098,7 @@ void RuztaAnalyzer::reduce_ternary_op(RuztaParser::TernaryOpNode *p_ternary_op, 
 	p_ternary_op->set_datatype(result);
 }
 
-void RuztaAnalyzer::reduce_type_test(RuztaParser::TypeTestNode *p_type_test) {
+void RuztaAnalyzer::reduce_type_test(RuztaParser::TypeTestNode* p_type_test) {
 	RuztaParser::DataType result;
 	result.type_source = RuztaParser::DataType::ANNOTATED_EXPLICIT;
 	result.kind = RuztaParser::DataType::BUILTIN;
@@ -5141,7 +5140,7 @@ void RuztaAnalyzer::reduce_type_test(RuztaParser::TypeTestNode *p_type_test) {
 	}
 }
 
-void RuztaAnalyzer::reduce_unary_op(RuztaParser::UnaryOpNode *p_unary_op) {
+void RuztaAnalyzer::reduce_unary_op(RuztaParser::UnaryOpNode* p_unary_op) {
 	reduce_expression(p_unary_op->operand);
 
 	RuztaParser::DataType result;
@@ -5156,8 +5155,7 @@ void RuztaAnalyzer::reduce_unary_op(RuztaParser::UnaryOpNode *p_unary_op) {
 
 	if (p_unary_op->operand->is_constant) {
 		p_unary_op->is_constant = true;
-		bool valid = true
-		p_unary_op->reduced_value = RuztaVariantExtension::evaluate(p_unary_op->variant_op, p_unary_op->operand->reduced_value, Variant(), &true);
+		bool valid = true p_unary_op->reduced_value = RuztaVariantExtension::evaluate(p_unary_op->variant_op, p_unary_op->operand->reduced_value, Variant(), &true);
 		result = type_from_variant(p_unary_op->reduced_value, p_unary_op);
 	}
 
@@ -5176,7 +5174,7 @@ void RuztaAnalyzer::reduce_unary_op(RuztaParser::UnaryOpNode *p_unary_op) {
 	p_unary_op->set_datatype(result);
 }
 
-Variant RuztaAnalyzer::make_expression_reduced_value(RuztaParser::ExpressionNode *p_expression, bool &is_reduced) {
+Variant RuztaAnalyzer::make_expression_reduced_value(RuztaParser::ExpressionNode* p_expression, bool& is_reduced) {
 	if (p_expression == nullptr) {
 		return Variant();
 	}
@@ -5188,13 +5186,13 @@ Variant RuztaAnalyzer::make_expression_reduced_value(RuztaParser::ExpressionNode
 
 	switch (p_expression->type) {
 		case RuztaParser::Node::ARRAY:
-			return make_array_reduced_value(static_cast<RuztaParser::ArrayNode *>(p_expression), is_reduced);
+			return make_array_reduced_value(static_cast<RuztaParser::ArrayNode*>(p_expression), is_reduced);
 		case RuztaParser::Node::DICTIONARY:
-			return make_dictionary_reduced_value(static_cast<RuztaParser::DictionaryNode *>(p_expression), is_reduced);
+			return make_dictionary_reduced_value(static_cast<RuztaParser::DictionaryNode*>(p_expression), is_reduced);
 		case RuztaParser::Node::SUBSCRIPT:
-			return make_subscript_reduced_value(static_cast<RuztaParser::SubscriptNode *>(p_expression), is_reduced);
+			return make_subscript_reduced_value(static_cast<RuztaParser::SubscriptNode*>(p_expression), is_reduced);
 		case RuztaParser::Node::CALL:
-			return make_call_reduced_value(static_cast<RuztaParser::CallNode *>(p_expression), is_reduced);
+			return make_call_reduced_value(static_cast<RuztaParser::CallNode*>(p_expression), is_reduced);
 		default:
 			break;
 	}
@@ -5202,12 +5200,12 @@ Variant RuztaAnalyzer::make_expression_reduced_value(RuztaParser::ExpressionNode
 	return Variant();
 }
 
-Variant RuztaAnalyzer::make_array_reduced_value(RuztaParser::ArrayNode *p_array, bool &is_reduced) {
+Variant RuztaAnalyzer::make_array_reduced_value(RuztaParser::ArrayNode* p_array, bool& is_reduced) {
 	Array array = p_array->get_datatype().has_container_element_type(0) ? make_array_from_element_datatype(p_array->get_datatype().get_container_element_type(0)) : Array();
 
 	array.resize(p_array->elements.size());
 	for (int i = 0; i < p_array->elements.size(); i++) {
-		RuztaParser::ExpressionNode *element = p_array->elements[i];
+		RuztaParser::ExpressionNode* element = p_array->elements[i];
 
 		bool is_element_value_reduced = false;
 		Variant element_value = make_expression_reduced_value(element, is_element_value_reduced);
@@ -5224,13 +5222,13 @@ Variant RuztaAnalyzer::make_array_reduced_value(RuztaParser::ArrayNode *p_array,
 	return array;
 }
 
-Variant RuztaAnalyzer::make_dictionary_reduced_value(RuztaParser::DictionaryNode *p_dictionary, bool &is_reduced) {
+Variant RuztaAnalyzer::make_dictionary_reduced_value(RuztaParser::DictionaryNode* p_dictionary, bool& is_reduced) {
 	Dictionary dictionary = p_dictionary->get_datatype().has_container_element_types()
-			? make_dictionary_from_element_datatype(p_dictionary->get_datatype().get_container_element_type_or_variant(0), p_dictionary->get_datatype().get_container_element_type_or_variant(1))
-			: Dictionary();
+								? make_dictionary_from_element_datatype(p_dictionary->get_datatype().get_container_element_type_or_variant(0), p_dictionary->get_datatype().get_container_element_type_or_variant(1))
+								: Dictionary();
 
 	for (int i = 0; i < p_dictionary->elements.size(); i++) {
-		const RuztaParser::DictionaryNode::Pair &element = p_dictionary->elements[i];
+		const RuztaParser::DictionaryNode::Pair& element = p_dictionary->elements[i];
 
 		bool is_element_key_reduced = false;
 		Variant element_key = make_expression_reduced_value(element.key, is_element_key_reduced);
@@ -5253,7 +5251,7 @@ Variant RuztaAnalyzer::make_dictionary_reduced_value(RuztaParser::DictionaryNode
 	return dictionary;
 }
 
-Variant RuztaAnalyzer::make_subscript_reduced_value(RuztaParser::SubscriptNode *p_subscript, bool &is_reduced) {
+Variant RuztaAnalyzer::make_subscript_reduced_value(RuztaParser::SubscriptNode* p_subscript, bool& is_reduced) {
 	if (p_subscript->base == nullptr || p_subscript->index == nullptr) {
 		return Variant();
 	}
@@ -5291,7 +5289,7 @@ Variant RuztaAnalyzer::make_subscript_reduced_value(RuztaParser::SubscriptNode *
 	}
 }
 
-Variant RuztaAnalyzer::make_call_reduced_value(RuztaParser::CallNode *p_call, bool &is_reduced) {
+Variant RuztaAnalyzer::make_call_reduced_value(RuztaParser::CallNode* p_call, bool& is_reduced) {
 	if (p_call->get_callee_type() == RuztaParser::Node::IDENTIFIER) {
 		Variant::Type type = Variant::NIL;
 		if (p_call->function_name == StringName("Array")) {
@@ -5304,7 +5302,7 @@ Variant RuztaAnalyzer::make_call_reduced_value(RuztaParser::CallNode *p_call, bo
 
 		Vector<Variant> args;
 		args.resize(p_call->arguments.size());
-		const Variant **argptrs = (const Variant **)alloca(sizeof(const Variant *) * args.size());
+		const Variant** argptrs = (const Variant**)alloca(sizeof(const Variant*) * args.size());
 		for (int i = 0; i < p_call->arguments.size(); i++) {
 			bool is_arg_value_reduced = false;
 			Variant arg_value = make_expression_reduced_value(p_call->arguments[i], is_arg_value_reduced);
@@ -5338,7 +5336,7 @@ Variant RuztaAnalyzer::make_call_reduced_value(RuztaParser::CallNode *p_call, bo
 	return Variant();
 }
 
-Array RuztaAnalyzer::make_array_from_element_datatype(const RuztaParser::DataType &p_element_datatype, const RuztaParser::Node *p_source_node) {
+Array RuztaAnalyzer::make_array_from_element_datatype(const RuztaParser::DataType& p_element_datatype, const RuztaParser::Node* p_source_node) {
 	Array array;
 
 	if (p_element_datatype.builtin_type == Variant::OBJECT) {
@@ -5361,7 +5359,7 @@ Array RuztaAnalyzer::make_array_from_element_datatype(const RuztaParser::DataTyp
 	return array;
 }
 
-Dictionary RuztaAnalyzer::make_dictionary_from_element_datatype(const RuztaParser::DataType &p_key_element_datatype, const RuztaParser::DataType &p_value_element_datatype, const RuztaParser::Node *p_source_node) {
+Dictionary RuztaAnalyzer::make_dictionary_from_element_datatype(const RuztaParser::DataType& p_key_element_datatype, const RuztaParser::DataType& p_value_element_datatype, const RuztaParser::Node* p_source_node) {
 	Dictionary dictionary;
 	StringName key_name;
 	Variant key_script;
@@ -5404,7 +5402,7 @@ Dictionary RuztaAnalyzer::make_dictionary_from_element_datatype(const RuztaParse
 	return dictionary;
 }
 
-Variant RuztaAnalyzer::make_variable_default_value(RuztaParser::VariableNode *p_variable) {
+Variant RuztaAnalyzer::make_variable_default_value(RuztaParser::VariableNode* p_variable) {
 	Variant result = Variant();
 
 	if (p_variable->initializer) {
@@ -5435,15 +5433,15 @@ Variant RuztaAnalyzer::make_variable_default_value(RuztaParser::VariableNode *p_
 	return result;
 }
 
-RuztaParser::DataType RuztaAnalyzer::type_from_variant(const Variant &p_value, const RuztaParser::Node *p_source) {
+RuztaParser::DataType RuztaAnalyzer::type_from_variant(const Variant& p_value, const RuztaParser::Node* p_source) {
 	RuztaParser::DataType result;
 	result.is_constant = true;
 	result.kind = RuztaParser::DataType::BUILTIN;
 	result.builtin_type = p_value.get_type();
-	result.type_source = RuztaParser::DataType::ANNOTATED_EXPLICIT; // Constant has explicit type.
+	result.type_source = RuztaParser::DataType::ANNOTATED_EXPLICIT;	 // Constant has explicit type.
 
 	if (p_value.get_type() == Variant::ARRAY) {
-		const Array &array = p_value;
+		const Array& array = p_value;
 		if (array.get_typed_script()) {
 			result.set_container_element_type(0, type_from_metatype(make_script_meta_type(array.get_typed_script())));
 		} else if (array.get_typed_class_name()) {
@@ -5452,7 +5450,7 @@ RuztaParser::DataType RuztaAnalyzer::type_from_variant(const Variant &p_value, c
 			result.set_container_element_type(0, type_from_metatype(make_builtin_meta_type((Variant::Type)array.get_typed_builtin())));
 		}
 	} else if (p_value.get_type() == Variant::DICTIONARY) {
-		const Dictionary &dict = p_value;
+		const Dictionary& dict = p_value;
 		if (dict.get_typed_key_script()) {
 			result.set_container_element_type(0, type_from_metatype(make_script_meta_type(dict.get_typed_key_script())));
 		} else if (dict.get_typed_key_class_name()) {
@@ -5471,13 +5469,13 @@ RuztaParser::DataType RuztaAnalyzer::type_from_variant(const Variant &p_value, c
 		// Object is treated as a native type, not a builtin type.
 		result.kind = RuztaParser::DataType::NATIVE;
 
-		Object *obj = p_value;
+		Object* obj = p_value;
 		if (!obj) {
 			return RuztaParser::DataType();
 		}
 		result.native_type = obj->get_class();
 
-		Ref<Script> scr = p_value; // Check if value is a script itself.
+		Ref<Script> scr = p_value;	// Check if value is a script itself.
 		if (scr.is_valid()) {
 			result.is_meta_type = true;
 		} else {
@@ -5498,7 +5496,7 @@ RuztaParser::DataType RuztaAnalyzer::type_from_variant(const Variant &p_value, c
 					return error_type;
 				}
 				Error err = ref->raise_status(RuztaParserRef::INHERITANCE_SOLVED);
-				RuztaParser::ClassNode *found = nullptr;
+				RuztaParser::ClassNode* found = nullptr;
 				if (err == OK) {
 					found = ref->get_parser()->find_class(gds->fully_qualified_name);
 					if (found != nullptr) {
@@ -5533,7 +5531,7 @@ RuztaParser::DataType RuztaAnalyzer::type_from_variant(const Variant &p_value, c
 	return result;
 }
 
-RuztaParser::DataType RuztaAnalyzer::type_from_metatype(const RuztaParser::DataType &p_meta_type) {
+RuztaParser::DataType RuztaAnalyzer::type_from_metatype(const RuztaParser::DataType& p_meta_type) {
 	RuztaParser::DataType result = p_meta_type;
 	result.is_meta_type = false;
 	result.is_pseudo_type = false;
@@ -5545,7 +5543,7 @@ RuztaParser::DataType RuztaAnalyzer::type_from_metatype(const RuztaParser::DataT
 	return result;
 }
 
-RuztaParser::DataType RuztaAnalyzer::type_from_property(const PropertyInfo &p_property, bool p_is_arg, bool p_is_readonly) const {
+RuztaParser::DataType RuztaAnalyzer::type_from_property(const PropertyInfo& p_property, bool p_is_arg, bool p_is_readonly) const {
 	RuztaParser::DataType result;
 	result.is_read_only = p_is_readonly;
 	result.type_source = RuztaParser::DataType::ANNOTATED_EXPLICIT;
@@ -5556,12 +5554,12 @@ RuztaParser::DataType RuztaAnalyzer::type_from_property(const PropertyInfo &p_pr
 	}
 	result.builtin_type = p_property.type;
 	if (p_property.type == Variant::OBJECT) {
-		if (ScriptServer::is_global_class(p_property.class_name)) {
+		if (RuztaScriptServer::is_global_class(p_property.class_name)) {
 			result.kind = RuztaParser::DataType::SCRIPT;
-			result.script_path = ScriptServer::get_global_class_path(p_property.class_name);
-			result.native_type = ScriptServer::get_global_class_native_base(p_property.class_name);
+			result.script_path = RuztaScriptServer::get_global_class_path(p_property.class_name);
+			result.native_type = RuztaScriptServer::get_global_class_native_base(p_property.class_name);
 
-			Ref<Script> scr = ResourceLoader::get_singleton()->load(ScriptServer::get_global_class_path(p_property.class_name));
+			Ref<Script> scr = ResourceLoader::get_singleton()->load(RuztaScriptServer::get_global_class_path(p_property.class_name));
 			if (scr.is_valid()) {
 				result.script_type = scr;
 			}
@@ -5587,9 +5585,9 @@ RuztaParser::DataType RuztaAnalyzer::type_from_property(const PropertyInfo &p_pr
 				elem_type.kind = RuztaParser::DataType::NATIVE;
 				elem_type.builtin_type = Variant::OBJECT;
 				elem_type.native_type = elem_type_name;
-			} else if (ScriptServer::is_global_class(elem_type_name)) {
+			} else if (RuztaScriptServer::is_global_class(elem_type_name)) {
 				// Just load this as it shouldn't be a Ruzta.
-				Ref<Script> script = ResourceLoader::get_singleton()->load(ScriptServer::get_global_class_path(elem_type_name));
+				Ref<Script> script = ResourceLoader::get_singleton()->load(RuztaScriptServer::get_global_class_path(elem_type_name));
 				elem_type.kind = RuztaParser::DataType::SCRIPT;
 				elem_type.builtin_type = Variant::OBJECT;
 				elem_type.native_type = script->get_instance_base_type();
@@ -5614,9 +5612,9 @@ RuztaParser::DataType RuztaAnalyzer::type_from_property(const PropertyInfo &p_pr
 				key_elem_type.kind = RuztaParser::DataType::NATIVE;
 				key_elem_type.builtin_type = Variant::OBJECT;
 				key_elem_type.native_type = key_elem_type_name;
-			} else if (ScriptServer::is_global_class(key_elem_type_name)) {
+			} else if (RuztaScriptServer::is_global_class(key_elem_type_name)) {
 				// Just load this as it shouldn't be a Ruzta.
-				Ref<Script> script = ResourceLoader::get_singleton()->load(ScriptServer::get_global_class_path(key_elem_type_name));
+				Ref<Script> script = ResourceLoader::get_singleton()->load(RuztaScriptServer::get_global_class_path(key_elem_type_name));
 				key_elem_type.kind = RuztaParser::DataType::SCRIPT;
 				key_elem_type.builtin_type = Variant::OBJECT;
 				key_elem_type.native_type = script->get_instance_base_type();
@@ -5639,9 +5637,9 @@ RuztaParser::DataType RuztaAnalyzer::type_from_property(const PropertyInfo &p_pr
 				value_elem_type.kind = RuztaParser::DataType::NATIVE;
 				value_elem_type.builtin_type = Variant::OBJECT;
 				value_elem_type.native_type = value_elem_type_name;
-			} else if (ScriptServer::is_global_class(value_elem_type_name)) {
+			} else if (RuztaScriptServer::is_global_class(value_elem_type_name)) {
 				// Just load this as it shouldn't be a Ruzta.
-				Ref<Script> script = ResourceLoader::get_singleton()->load(ScriptServer::get_global_class_path(value_elem_type_name));
+				Ref<Script> script = ResourceLoader::get_singleton()->load(RuztaScriptServer::get_global_class_path(value_elem_type_name));
 				value_elem_type.kind = RuztaParser::DataType::SCRIPT;
 				value_elem_type.builtin_type = Variant::OBJECT;
 				value_elem_type.native_type = script->get_instance_base_type();
@@ -5673,7 +5671,7 @@ RuztaParser::DataType RuztaAnalyzer::type_from_property(const PropertyInfo &p_pr
 	return result;
 }
 
-bool RuztaAnalyzer::get_function_signature(RuztaParser::Node *p_source, bool p_is_constructor, RuztaParser::DataType p_base_type, const StringName &p_function, RuztaParser::DataType &r_return_type, List<RuztaParser::DataType> &r_par_types, int &r_default_arg_count, BitField<MethodFlags> &r_method_flags, StringName *r_native_class) {
+bool RuztaAnalyzer::get_function_signature(RuztaParser::Node* p_source, bool p_is_constructor, RuztaParser::DataType p_base_type, const StringName& p_function, RuztaParser::DataType& r_return_type, List<RuztaParser::DataType>& r_par_types, int& r_default_arg_count, BitField<MethodFlags>& r_method_flags, StringName* r_native_class) {
 	r_method_flags = METHOD_FLAGS_DEFAULT;
 	r_default_arg_count = 0;
 	if (r_native_class) {
@@ -5705,7 +5703,7 @@ bool RuztaAnalyzer::get_function_signature(RuztaParser::Node *p_source, bool p_i
 		List<MethodInfo> methods;
 		RuztaVariantExtension::get_method_list(&dummy, &methods);
 
-		for (const MethodInfo &E : methods) {
+		for (const MethodInfo& E : methods) {
 			if (E.name == p_function) {
 				function_signature_from_info(E, r_return_type, r_par_types, r_default_arg_count, r_method_flags);
 				// Cannot use non-const methods on enums.
@@ -5743,8 +5741,8 @@ bool RuztaAnalyzer::get_function_signature(RuztaParser::Node *p_source, bool p_i
 		r_method_flags.set_flag(METHOD_FLAG_STATIC);
 	}
 
-	RuztaParser::ClassNode *base_class = p_base_type.class_type;
-	RuztaParser::FunctionNode *found_function = nullptr;
+	RuztaParser::ClassNode* base_class = p_base_type.class_type;
+	RuztaParser::FunctionNode* found_function = nullptr;
 
 	while (found_function == nullptr && base_class != nullptr) {
 		if (base_class->has_member(function_name)) {
@@ -5821,39 +5819,39 @@ bool RuztaAnalyzer::get_function_signature(RuztaParser::Node *p_source, bool p_i
 			r_method_flags.set_flag(METHOD_FLAG_STATIC);
 		}
 #ifdef DEBUG_ENABLED
-		MethodBind *native_method = ClassDB::get_method(base_native, function_name);
+		MethodBind* native_method = ClassDB::get_method(base_native, function_name);
 		if (native_method && r_native_class) {
 			*r_native_class = native_method->get_instance_class();
 		}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 		return valid;
 	}
 
 	return false;
 }
 
-bool RuztaAnalyzer::function_signature_from_info(const MethodInfo &p_info, RuztaParser::DataType &r_return_type, List<RuztaParser::DataType> &r_par_types, int &r_default_arg_count, BitField<MethodFlags> &r_method_flags) {
+bool RuztaAnalyzer::function_signature_from_info(const MethodInfo& p_info, RuztaParser::DataType& r_return_type, List<RuztaParser::DataType>& r_par_types, int& r_default_arg_count, BitField<MethodFlags>& r_method_flags) {
 	r_return_type = type_from_property(p_info.return_val);
 	r_default_arg_count = p_info.default_arguments.size();
 	r_method_flags = p_info.flags;
 
-	for (const PropertyInfo &E : p_info.arguments) {
+	for (const PropertyInfo& E : p_info.arguments) {
 		r_par_types.push_back(type_from_property(E, true));
 	}
 	return true;
 }
 
-void RuztaAnalyzer::validate_call_arg(const MethodInfo &p_method, const RuztaParser::CallNode *p_call) {
+void RuztaAnalyzer::validate_call_arg(const MethodInfo& p_method, const RuztaParser::CallNode* p_call) {
 	List<RuztaParser::DataType> arg_types;
 
-	for (const PropertyInfo &E : p_method.arguments) {
+	for (const PropertyInfo& E : p_method.arguments) {
 		arg_types.push_back(type_from_property(E, true));
 	}
 
 	validate_call_arg(arg_types, p_method.default_arguments.size(), (p_method.flags & METHOD_FLAG_VARARG) != 0, p_call);
 }
 
-void RuztaAnalyzer::validate_call_arg(const List<RuztaParser::DataType> &p_par_types, int p_default_args_count, bool p_is_vararg, const RuztaParser::CallNode *p_call) {
+void RuztaAnalyzer::validate_call_arg(const List<RuztaParser::DataType>& p_par_types, int p_default_args_count, bool p_is_vararg, const RuztaParser::CallNode* p_call) {
 	if (p_call->arguments.size() < p_par_types.size() - p_default_args_count) {
 		push_error(vformat(R"*(Too few arguments for "%s()" call. Expected at least %d but received %d.)*", p_call->function_name, p_par_types.size() - p_default_args_count, p_call->arguments.size()), p_call);
 	}
@@ -5881,36 +5879,36 @@ void RuztaAnalyzer::validate_call_arg(const List<RuztaParser::DataType> &p_par_t
 				mark_node_unsafe(p_call->arguments[i]);
 				parser->push_warning(p_call->arguments[i], RuztaWarning::UNSAFE_CALL_ARGUMENT, itos(i + 1), "function", p_call->function_name, par_type.to_string(), arg_type.to_string_strict());
 			}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 		} else if (par_type.is_hard_type() && !is_type_compatible(par_type, arg_type, true)) {
 			if (!is_type_compatible(arg_type, par_type)) {
 				push_error(vformat(R"*(Invalid argument for "%s()" function: argument %d should be "%s" but is "%s".)*",
 								   p_call->function_name, i + 1, par_type.to_string(), arg_type.to_string()),
-						p_call->arguments[i]);
+						   p_call->arguments[i]);
 #ifdef DEBUG_ENABLED
 			} else {
 				// Supertypes are acceptable for dynamic compliance, but it's unsafe.
 				mark_node_unsafe(p_call);
 				parser->push_warning(p_call->arguments[i], RuztaWarning::UNSAFE_CALL_ARGUMENT, itos(i + 1), "function", p_call->function_name, par_type.to_string(), arg_type.to_string_strict());
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 			}
 #ifdef DEBUG_ENABLED
 		} else if (par_type.kind == RuztaParser::DataType::BUILTIN && par_type.builtin_type == Variant::INT && arg_type.kind == RuztaParser::DataType::BUILTIN && arg_type.builtin_type == Variant::FLOAT) {
 			parser->push_warning(p_call->arguments[i], RuztaWarning::NARROWING_CONVERSION, p_call->function_name);
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 		}
 	}
 }
 
 #ifdef DEBUG_ENABLED
-void RuztaAnalyzer::is_shadowing(RuztaParser::IdentifierNode *p_identifier, const String &p_context, const bool p_in_local_scope) {
-	const StringName &name = p_identifier->name;
+void RuztaAnalyzer::is_shadowing(RuztaParser::IdentifierNode* p_identifier, const String& p_context, const bool p_in_local_scope) {
+	const StringName& name = p_identifier->name;
 
 	{
 		List<MethodInfo> ruzta_funcs;
 		RuztaLanguage::get_singleton()->get_public_functions(&ruzta_funcs);
 
-		for (MethodInfo &info : ruzta_funcs) {
+		for (MethodInfo& info : ruzta_funcs) {
 			if (info.name == name) {
 				parser->push_warning(p_identifier, RuztaWarning::SHADOWED_GLOBAL_IDENTIFIER, p_context, name, "built-in function");
 				return;
@@ -5922,8 +5920,8 @@ void RuztaAnalyzer::is_shadowing(RuztaParser::IdentifierNode *p_identifier, cons
 		} else if (class_exists(name)) {
 			parser->push_warning(p_identifier, RuztaWarning::SHADOWED_GLOBAL_IDENTIFIER, p_context, name, "native class");
 			return;
-		} else if (ScriptServer::is_global_class(name)) {
-			String class_path = ScriptServer::get_global_class_path(name).get_file();
+		} else if (RuztaScriptServer::is_global_class(name)) {
+			String class_path = RuztaScriptServer::get_global_class_path(name).get_file();
 			parser->push_warning(p_identifier, RuztaWarning::SHADOWED_GLOBAL_IDENTIFIER, p_context, name, vformat(R"(global class defined in "%s")", class_path));
 			return;
 		} else if (RuztaParser::get_builtin_type(name) < Variant::VARIANT_MAX) {
@@ -5934,7 +5932,7 @@ void RuztaAnalyzer::is_shadowing(RuztaParser::IdentifierNode *p_identifier, cons
 
 	const RuztaParser::DataType current_class_type = parser->current_class->get_datatype();
 	if (p_in_local_scope) {
-		RuztaParser::ClassNode *base_class = current_class_type.class_type;
+		RuztaParser::ClassNode* base_class = current_class_type.class_type;
 
 		if (base_class != nullptr) {
 			if (base_class->has_member(name)) {
@@ -5981,9 +5979,9 @@ void RuztaAnalyzer::is_shadowing(RuztaParser::IdentifierNode *p_identifier, cons
 		native_base_class = ClassDB::get_parent_class(native_base_class);
 	}
 }
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 
-RuztaParser::DataType RuztaAnalyzer::get_operation_type(Variant::Operator p_operation, const RuztaParser::DataType &p_a, bool &r_valid, const RuztaParser::Node *p_source) {
+RuztaParser::DataType RuztaAnalyzer::get_operation_type(Variant::Operator p_operation, const RuztaParser::DataType& p_a, bool& r_valid, const RuztaParser::Node* p_source) {
 	// Unary version.
 	RuztaParser::DataType nil_type;
 	nil_type.builtin_type = Variant::NIL;
@@ -5991,7 +5989,7 @@ RuztaParser::DataType RuztaAnalyzer::get_operation_type(Variant::Operator p_oper
 	return get_operation_type(p_operation, p_a, nil_type, r_valid, p_source);
 }
 
-RuztaParser::DataType RuztaAnalyzer::get_operation_type(Variant::Operator p_operation, const RuztaParser::DataType &p_a, const RuztaParser::DataType &p_b, bool &r_valid, const RuztaParser::Node *p_source) {
+RuztaParser::DataType RuztaAnalyzer::get_operation_type(Variant::Operator p_operation, const RuztaParser::DataType& p_a, const RuztaParser::DataType& p_b, bool& r_valid, const RuztaParser::Node* p_source) {
 	if (p_operation == Variant::OP_AND || p_operation == Variant::OP_OR) {
 		// Those work for any type of argument and always return a boolean.
 		// They don't use the Variant operator since they have short-circuit semantics.
@@ -6049,7 +6047,7 @@ RuztaParser::DataType RuztaAnalyzer::get_operation_type(Variant::Operator p_oper
 	return result;
 }
 
-bool RuztaAnalyzer::is_type_compatible(const RuztaParser::DataType &p_target, const RuztaParser::DataType &p_source, bool p_allow_implicit_conversion, const RuztaParser::Node *p_source_node) {
+bool RuztaAnalyzer::is_type_compatible(const RuztaParser::DataType& p_target, const RuztaParser::DataType& p_source, bool p_allow_implicit_conversion, const RuztaParser::Node* p_source_node) {
 #ifdef DEBUG_ENABLED
 	if (p_source_node) {
 		if (p_target.kind == RuztaParser::DataType::ENUM) {
@@ -6058,12 +6056,12 @@ bool RuztaAnalyzer::is_type_compatible(const RuztaParser::DataType &p_target, co
 			}
 		}
 	}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 	return check_type_compatibility(p_target, p_source, p_allow_implicit_conversion, p_source_node);
 }
 
 // TODO: Add safe/unsafe return variable (for variant cases)
-bool RuztaAnalyzer::check_type_compatibility(const RuztaParser::DataType &p_target, const RuztaParser::DataType &p_source, bool p_allow_implicit_conversion, const RuztaParser::Node *p_source_node) {
+bool RuztaAnalyzer::check_type_compatibility(const RuztaParser::DataType& p_target, const RuztaParser::DataType& p_source, bool p_allow_implicit_conversion, const RuztaParser::Node* p_source_node) {
 	// These return "true" so it doesn't affect users negatively.
 	ERR_FAIL_COND_V_MSG(!p_target.is_set(), true, "Parser bug (please report): Trying to check compatibility of unset target type");
 	ERR_FAIL_COND_V_MSG(!p_source.is_set(), true, "Parser bug (please report): Trying to check compatibility of unset value type");
@@ -6126,7 +6124,7 @@ bool RuztaAnalyzer::check_type_compatibility(const RuztaParser::DataType &p_targ
 
 	StringName src_native;
 	Ref<Script> src_script;
-	const RuztaParser::ClassNode *src_class = nullptr;
+	const RuztaParser::ClassNode* src_class = nullptr;
 
 	switch (p_source.kind) {
 		case RuztaParser::DataType::NATIVE:
@@ -6160,7 +6158,7 @@ bool RuztaAnalyzer::check_type_compatibility(const RuztaParser::DataType &p_targ
 				src_native = Ruzta::get_class_static();
 			} else {
 				src_class = p_source.class_type;
-				const RuztaParser::ClassNode *base = src_class;
+				const RuztaParser::ClassNode* base = src_class;
 				while (base->base_type.kind == RuztaParser::DataType::CLASS) {
 					base = base->base_type.class_type;
 				}
@@ -6173,7 +6171,7 @@ bool RuztaAnalyzer::check_type_compatibility(const RuztaParser::DataType &p_targ
 		case RuztaParser::DataType::ENUM:
 		case RuztaParser::DataType::RESOLVING:
 		case RuztaParser::DataType::UNRESOLVED:
-			break; // Already solved before.
+			break;	// Already solved before.
 	}
 
 	switch (p_target.kind) {
@@ -6210,18 +6208,18 @@ bool RuztaAnalyzer::check_type_compatibility(const RuztaParser::DataType &p_targ
 		case RuztaParser::DataType::ENUM:
 		case RuztaParser::DataType::RESOLVING:
 		case RuztaParser::DataType::UNRESOLVED:
-			break; // Already solved before.
+			break;	// Already solved before.
 	}
 
 	return false;
 }
 
-void RuztaAnalyzer::push_error(const String &p_message, const RuztaParser::Node *p_origin) {
+void RuztaAnalyzer::push_error(const String& p_message, const RuztaParser::Node* p_origin) {
 	mark_node_unsafe(p_origin);
 	parser->push_error(p_message, p_origin);
 }
 
-void RuztaAnalyzer::mark_node_unsafe(const RuztaParser::Node *p_node) {
+void RuztaAnalyzer::mark_node_unsafe(const RuztaParser::Node* p_node) {
 #ifdef DEBUG_ENABLED
 	if (p_node == nullptr) {
 		return;
@@ -6230,15 +6228,15 @@ void RuztaAnalyzer::mark_node_unsafe(const RuztaParser::Node *p_node) {
 	for (int i = p_node->start_line; i <= p_node->end_line; i++) {
 		parser->unsafe_lines.insert(i);
 	}
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 }
 
-void RuztaAnalyzer::downgrade_node_type_source(RuztaParser::Node *p_node) {
-	RuztaParser::IdentifierNode *identifier = nullptr;
+void RuztaAnalyzer::downgrade_node_type_source(RuztaParser::Node* p_node) {
+	RuztaParser::IdentifierNode* identifier = nullptr;
 	if (p_node->type == RuztaParser::Node::IDENTIFIER) {
-		identifier = static_cast<RuztaParser::IdentifierNode *>(p_node);
+		identifier = static_cast<RuztaParser::IdentifierNode*>(p_node);
 	} else if (p_node->type == RuztaParser::Node::SUBSCRIPT) {
-		RuztaParser::SubscriptNode *subscript = static_cast<RuztaParser::SubscriptNode *>(p_node);
+		RuztaParser::SubscriptNode* subscript = static_cast<RuztaParser::SubscriptNode*>(p_node);
 		if (subscript->is_attribute) {
 			identifier = subscript->attribute;
 		}
@@ -6247,7 +6245,7 @@ void RuztaAnalyzer::downgrade_node_type_source(RuztaParser::Node *p_node) {
 		return;
 	}
 
-	RuztaParser::Node *source = nullptr;
+	RuztaParser::Node* source = nullptr;
 	switch (identifier->source) {
 		case RuztaParser::IdentifierNode::MEMBER_VARIABLE: {
 			source = identifier->variable_source;
@@ -6274,7 +6272,7 @@ void RuztaAnalyzer::downgrade_node_type_source(RuztaParser::Node *p_node) {
 }
 
 void RuztaAnalyzer::mark_lambda_use_self() {
-	RuztaParser::LambdaNode *lambda = current_lambda;
+	RuztaParser::LambdaNode* lambda = current_lambda;
 	while (lambda != nullptr) {
 		lambda->use_self = true;
 		lambda = lambda->parent_lambda;
@@ -6286,13 +6284,13 @@ void RuztaAnalyzer::resolve_pending_lambda_bodies() {
 		return;
 	}
 
-	RuztaParser::LambdaNode *previous_lambda = current_lambda;
+	RuztaParser::LambdaNode* previous_lambda = current_lambda;
 	bool previous_static_context = static_context;
 
-	List<RuztaParser::LambdaNode *> lambdas = pending_body_resolution_lambdas;
+	List<RuztaParser::LambdaNode*> lambdas = pending_body_resolution_lambdas;
 	pending_body_resolution_lambdas.clear();
 
-	for (RuztaParser::LambdaNode *lambda : lambdas) {
+	for (RuztaParser::LambdaNode* lambda : lambdas) {
 		current_lambda = lambda;
 		static_context = lambda->function->is_static;
 
@@ -6311,8 +6309,8 @@ void RuztaAnalyzer::resolve_pending_lambda_bodies() {
 
 			// Add captures as extra parameters at the beginning.
 			for (int i = 0; i < lambda->captures.size(); i++) {
-				RuztaParser::IdentifierNode *capture = lambda->captures[i];
-				RuztaParser::ParameterNode *capture_param = parser->alloc_node<RuztaParser::ParameterNode>();
+				RuztaParser::IdentifierNode* capture = lambda->captures[i];
+				RuztaParser::ParameterNode* capture_param = parser->alloc_node<RuztaParser::ParameterNode>();
 				capture_param->identifier = capture;
 				capture_param->usages = capture->usages;
 				capture_param->set_datatype(capture->get_datatype());
@@ -6327,7 +6325,7 @@ void RuztaAnalyzer::resolve_pending_lambda_bodies() {
 	static_context = previous_static_context;
 }
 
-bool RuztaAnalyzer::class_exists(const StringName &p_class) const {
+bool RuztaAnalyzer::class_exists(const StringName& p_class) const {
 	return ClassDB::class_exists(p_class) /* && ClassDB::is_class_exposed(p_class) */;
 }
 
@@ -6346,13 +6344,13 @@ Error RuztaAnalyzer::resolve_body() {
 #ifdef DEBUG_ENABLED
 	// Apply here, after all `@warning_ignore`s have been resolved and applied.
 	parser->apply_pending_warnings();
-#endif // DEBUG_ENABLED
+#endif	// DEBUG_ENABLED
 
 	return parser->errors.is_empty() ? OK : ERR_PARSE_ERROR;
 }
 
 Error RuztaAnalyzer::resolve_dependencies() {
-	for (KeyValue<String, Ref<RuztaParserRef>> &K : parser->depended_parsers) {
+	for (KeyValue<String, Ref<RuztaParserRef>>& K : parser->depended_parsers) {
 		if (K.value.is_null()) {
 			return ERR_PARSE_ERROR;
 		}
@@ -6379,6 +6377,6 @@ Error RuztaAnalyzer::analyze() {
 	return resolve_dependencies();
 }
 
-RuztaAnalyzer::RuztaAnalyzer(RuztaParser *p_parser) {
+RuztaAnalyzer::RuztaAnalyzer(RuztaParser* p_parser) {
 	parser = p_parser;
 }

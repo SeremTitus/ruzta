@@ -188,48 +188,48 @@ Array RuztaTextDocument::completion(const Dictionary &p_params) {
 	params.load(p_params);
 	Dictionary request_data = params.to_json();
 
-	List<ScriptLanguage::CodeCompletionOption> options;
+	List<RuztaLanguage::CodeCompletionOption> options;
 	RuztaLanguageProtocol::get_singleton()->get_workspace()->completion(params, &options);
 
 	if (!options.is_empty()) {
 		int i = 0;
 		arr.resize(options.size());
 
-		for (const ScriptLanguage::CodeCompletionOption &option : options) {
+		for (const RuztaLanguage::CodeCompletionOption &option : options) {
 			LSP::CompletionItem item;
 			item.label = option.display;
 			item.data = request_data;
 			item.insertText = option.insert_text;
 
 			switch (option.kind) {
-				case ScriptLanguage::CODE_COMPLETION_KIND_ENUM:
+				case RuztaLanguage::CODE_COMPLETION_KIND_ENUM:
 					item.kind = LSP::CompletionItemKind::Enum;
 					break;
-				case ScriptLanguage::CODE_COMPLETION_KIND_CLASS:
+				case RuztaLanguage::CODE_COMPLETION_KIND_CLASS:
 					item.kind = LSP::CompletionItemKind::Class;
 					break;
-				case ScriptLanguage::CODE_COMPLETION_KIND_MEMBER:
+				case RuztaLanguage::CODE_COMPLETION_KIND_MEMBER:
 					item.kind = LSP::CompletionItemKind::Property;
 					break;
-				case ScriptLanguage::CODE_COMPLETION_KIND_FUNCTION:
+				case RuztaLanguage::CODE_COMPLETION_KIND_FUNCTION:
 					item.kind = LSP::CompletionItemKind::Method;
 					break;
-				case ScriptLanguage::CODE_COMPLETION_KIND_SIGNAL:
+				case RuztaLanguage::CODE_COMPLETION_KIND_SIGNAL:
 					item.kind = LSP::CompletionItemKind::Event;
 					break;
-				case ScriptLanguage::CODE_COMPLETION_KIND_CONSTANT:
+				case RuztaLanguage::CODE_COMPLETION_KIND_CONSTANT:
 					item.kind = LSP::CompletionItemKind::Constant;
 					break;
-				case ScriptLanguage::CODE_COMPLETION_KIND_VARIABLE:
+				case RuztaLanguage::CODE_COMPLETION_KIND_VARIABLE:
 					item.kind = LSP::CompletionItemKind::Variable;
 					break;
-				case ScriptLanguage::CODE_COMPLETION_KIND_FILE_PATH:
+				case RuztaLanguage::CODE_COMPLETION_KIND_FILE_PATH:
 					item.kind = LSP::CompletionItemKind::File;
 					break;
-				case ScriptLanguage::CODE_COMPLETION_KIND_NODE_PATH:
+				case RuztaLanguage::CODE_COMPLETION_KIND_NODE_PATH:
 					item.kind = LSP::CompletionItemKind::Snippet;
 					break;
-				case ScriptLanguage::CODE_COMPLETION_KIND_PLAIN_TEXT:
+				case RuztaLanguage::CODE_COMPLETION_KIND_PLAIN_TEXT:
 					item.kind = LSP::CompletionItemKind::Text;
 					break;
 				default: {

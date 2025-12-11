@@ -58,8 +58,8 @@ void init_autoloads() {
 		const ProjectSettings::AutoloadInfo &info = E.value;
 
 		if (info.is_singleton) {
-			for (int i = 0; i < ScriptServer::get_language_count(); i++) {
-				ScriptServer::get_language(i)->add_global_constant(info.name, Variant());
+			for (int i = 0; i < RuztaScriptServer::get_language_count(); i++) {
+				RuztaScriptServer::get_language(i)->add_global_constant(info.name, Variant());
 			}
 		}
 	}
@@ -74,7 +74,7 @@ void init_autoloads() {
 		}
 
 		Node *n = nullptr;
-		if (ResourceLoader::get_singleton()->get_resource_type(info.path) == "PackedScene") {
+		if (ResourceLoader::get_singleton()->get_recognized_extensions_for_type("PackedScene").has(info.path.get_extension()) {
 			// Cache the scene reference before loading it (for cyclic references)
 			Ref<PackedScene> scn;
 			scn.instantiate();
@@ -106,8 +106,8 @@ void init_autoloads() {
 		ERR_CONTINUE_MSG(!n, vformat("Failed to instantiate an autoload, path is not pointing to a scene or a script: %s.", info.path));
 		n->set_name(info.name);
 
-		for (int i = 0; i < ScriptServer::get_language_count(); i++) {
-			ScriptServer::get_language(i)->add_global_constant(info.name, n);
+		for (int i = 0; i < RuztaScriptServer::get_language_count(); i++) {
+			RuztaScriptServer::get_language(i)->add_global_constant(info.name, n);
 		}
 	}
 }
@@ -128,7 +128,7 @@ void init_language(const String &p_base_path) {
 
 void finish_language() {
 	RuztaLanguage::get_singleton()->finish();
-	ScriptServer::global_classes_clear();
+	RuztaScriptServer::global_classes_clear();
 }
 
 StringName RuztaTestRunner::test_function_name;
@@ -382,10 +382,10 @@ static bool generate_class_index_recursive(const String &p_dir) {
 				next = dir->get_next();
 				continue;
 			}
-			ERR_FAIL_COND_V_MSG(ScriptServer::is_global_class(class_name), false,
-					"Class name '" + class_name + "' from " + source_file + " is already used in " + ScriptServer::get_global_class_path(class_name));
+			ERR_FAIL_COND_V_MSG(RuztaScriptServer::is_global_class(class_name), false,
+					"Class name '" + class_name + "' from " + source_file + " is already used in " + RuztaScriptServer::get_global_class_path(class_name));
 
-			ScriptServer::add_global_class(class_name, base_type, ruzta_name, source_file, is_abstract, is_tool);
+			RuztaScriptServer::add_global_class(class_name, base_type, ruzta_name, source_file, is_abstract, is_tool);
 		}
 
 		next = dir->get_next();

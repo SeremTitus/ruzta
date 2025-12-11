@@ -40,6 +40,7 @@
 #include <godot_cpp/classes/file_access.hpp> // original: core/io/file_access.h
 #include <godot_cpp/templates/vector.hpp> // original: core/templates/vector.h
 #include <godot_cpp/core/mutex_lock.hpp> // original:
+#include <godot_cpp/classes/worker_thread_pool.hpp> // original:
 
 RuztaParserRef::Status RuztaParserRef::get_status() const {
 	return status;
@@ -78,13 +79,12 @@ Error RuztaParserRef::raise_status(Status p_new_status) {
 				// It's ok if its the first thing done here.
 				get_parser()->clear();
 				status = PARSED;
-				String remapped_path = ResourceLoader::get_singleton()->path_remap(path);
-				if (remapped_path.get_extension() == String("rzc")) {
-					Vector<uint8_t> tokens = RuztaCache::get_binary_tokens(remapped_path);
+				if (path.get_extension() == String("rzc")) {
+					Vector<uint8_t> tokens = RuztaCache::get_binary_tokens(path);
 					source_hash = hash_djb2_buffer(tokens.ptr(), tokens.size());
 					result = get_parser()->parse_binary(tokens, path);
 				} else {
-					String source = RuztaCache::get_source_code(remapped_path);
+					String source = RuztaCache::get_source_code(path);
 					source_hash = source.hash();
 					result = get_parser()->parse(source, path, false);
 				}
@@ -220,8 +220,7 @@ Ref<RuztaParserRef> RuztaCache::get_parser(const String &p_path, RuztaParserRef:
 			return ref;
 		}
 	} else {
-		String remapped_path = ResourceLoader::get_singleton()->path_remap(p_path);
-		if (!FileAccess::exists(remapped_path)) {
+		if (!FileAccess::file_exists(p_path)) {
 			r_error = ERR_FILE_NOT_FOUND;
 			return ref;
 		}
@@ -305,19 +304,17 @@ Ref<Ruzta> RuztaCache::get_shallow_script(const String &p_path, Error &r_error, 
 		return singleton->shallow_ruzta_cache[p_path];
 	}
 
-	const String remapped_path = ResourceLoader::get_singleton()->path_remap(p_path);
-
 	Ref<Ruzta> script;
 	script.instantiate();
 	script->set_path(p_path, true);
-	if (remapped_path.get_extension() == String("rzc")) {
-		Vector<uint8_t> buffer = get_binary_tokens(remapped_path);
+	if (p_path.get_extension() == String("rzc")) {
+		Vector<uint8_t> buffer = get_binary_tokens(p_path);
 		if (buffer.is_empty()) {
 			r_error = ERR_FILE_CANT_READ;
 		}
 		script->set_binary_tokens_source(buffer);
 	} else {
-		r_error = script->load_source_code(remapped_path);
+		r_error = script->load_source_code(p_path);
 	}
 
 	if (r_error) {
@@ -358,18 +355,16 @@ Ref<Ruzta> RuztaCache::get_full_script(const String &p_path, Error &r_error, con
 		}
 	}
 
-	const String remapped_path = ResourceLoader::get_singleton()->path_remap(p_path);
-
 	if (p_update_from_disk) {
-		if (remapped_path.get_extension() == String("rzc")) {
-			Vector<uint8_t> buffer = get_binary_tokens(remapped_path);
+		if (p_path.get_extension() == String("rzc")) {
+			Vector<uint8_t> buffer = get_binary_tokens(p_path);
 			if (buffer.is_empty()) {
 				r_error = ERR_FILE_CANT_READ;
 				return script;
 			}
 			script->set_binary_tokens_source(buffer);
 		} else {
-			r_error = script->load_source_code(remapped_path);
+			r_error = script->load_source_code(p_path);
 			if (r_error) {
 				return script;
 			}
@@ -378,9 +373,9 @@ Ref<Ruzta> RuztaCache::get_full_script(const String &p_path, Error &r_error, con
 
 	// Allowing lifting the lock might cause a script to be reloaded multiple times,
 	// which, as a last resort deadlock prevention strategy, is a good tradeoff.
-	uint32_t allowance_id = WorkerThreadPool::thread_enter_unlock_allowance_zone(singleton->mutex);
+	// uint32_t allowance_id = WorkerThreadPool::get_singleton()->thread_enter_unlock_allowance_zone(singleton->mutex);
 	r_error = script->reload(true);
-	WorkerThreadPool::thread_exit_unlock_allowance_zone(allowance_id);
+	// WorkerThreadPool::get_singleton()->thread_exit_unlock_allowance_zone(allowance_id);
 	if (r_error) {
 		return script;
 	}
@@ -433,7 +428,7 @@ Error RuztaCache::finish_compiling(const String &p_owner) {
 
 void RuztaCache::add_static_script(Ref<Ruzta> p_script) {
 	ERR_FAIL_COND_MSG(p_script.is_null(), "Trying to cache empty script as static.");
-	ERR_FAIL_COND_MSG(!p_script->is_valid(), "Trying to cache non-compiled script as static.");
+	ERR_FAIL_COND_MSG(!p_script->_is_valid(), "Trying to cache non-compiled script as static.");
 	singleton->static_ruzta_cache[p_script->get_fully_qualified_name()] = p_script;
 }
 

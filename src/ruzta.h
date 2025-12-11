@@ -35,6 +35,7 @@
 #include <godot_cpp/classes/engine_debugger.hpp>  // original: core/debugger/engine_debugger.h
 
 #include "ruzta_function.h"
+#include "ruzta_cache.h"
 // TODO: #include "core/debugger/script_debugger.h" // original: core/debugger/script_debugger.h
 #include <godot_cpp/classes/mutex.hpp>						// original:
 #include <godot_cpp/classes/resource_format_loader.hpp>		// original:
@@ -262,7 +263,7 @@ class Ruzta : public ScriptExtension {
 	virtual bool _is_tool() const override { return tool; }
 	virtual bool _is_valid() const override { return valid; }
 	virtual bool _is_abstract() const override { return is_abstract; }
-	virtual ScriptLanguage* _get_language() const override { return RuztaLanguage::get_singleton(); }
+	virtual ScriptLanguage* _get_language() const override;
 	virtual bool _has_script_signal(const StringName& p_signal) const override;
 	virtual godot::TypedArray<Dictionary> _get_script_signal_list() const override;
 	virtual bool _has_property_default_value(const StringName& p_property) const override;
@@ -587,6 +588,121 @@ class RuztaLanguage : public ScriptLanguageExtension {
 #endif
 
    public:
+	enum CodeCompletionKind {
+		CODE_COMPLETION_KIND_CLASS,
+		CODE_COMPLETION_KIND_FUNCTION,
+		CODE_COMPLETION_KIND_SIGNAL,
+		CODE_COMPLETION_KIND_VARIABLE,
+		CODE_COMPLETION_KIND_MEMBER,
+		CODE_COMPLETION_KIND_ENUM,
+		CODE_COMPLETION_KIND_CONSTANT,
+		CODE_COMPLETION_KIND_NODE_PATH,
+		CODE_COMPLETION_KIND_FILE_PATH,
+		CODE_COMPLETION_KIND_PLAIN_TEXT,
+		CODE_COMPLETION_KIND_MAX
+	};
+
+	// scene/gui/code_edit.h - CodeEdit::CodeCompletionLocation
+	enum CodeCompletionLocation {
+		LOCATION_LOCAL = 0,
+		LOCATION_PARENT_MASK = 1 << 8,
+		LOCATION_OTHER_USER_CODE = 1 << 9,
+		LOCATION_OTHER = 1 << 10,
+	};
+
+	struct CodeCompletionOption {
+		CodeCompletionKind kind = CODE_COMPLETION_KIND_PLAIN_TEXT;
+		String display;
+		String insert_text;
+		Color font_color;
+		Ref<Resource> icon;
+		Variant default_value;
+		Vector<Pair<int, int>> matches;
+		bool matches_dirty = true; // Must be set when mutating `matches`, so that sorting characteristics are recalculated.
+		int location = LOCATION_OTHER;
+		String theme_color_name;
+
+		CodeCompletionOption() {}
+
+		CodeCompletionOption(const String &p_text, CodeCompletionKind p_kind, int p_location = LOCATION_OTHER, const String &p_theme_color_name = "") {
+			display = p_text;
+			insert_text = p_text;
+			kind = p_kind;
+			location = p_location;
+			theme_color_name = p_theme_color_name;
+		}
+
+		TypedArray<int> get_option_characteristics(const String &p_base);
+		void clear_characteristics();
+		TypedArray<int> get_option_cached_characteristics() const;
+
+	private:
+		TypedArray<int> charac;
+	};
+
+	enum LookupResultType {
+		LOOKUP_RESULT_SCRIPT_LOCATION, // Use if none of the options below apply.
+		LOOKUP_RESULT_CLASS,
+		LOOKUP_RESULT_CLASS_CONSTANT,
+		LOOKUP_RESULT_CLASS_PROPERTY,
+		LOOKUP_RESULT_CLASS_METHOD,
+		LOOKUP_RESULT_CLASS_SIGNAL,
+		LOOKUP_RESULT_CLASS_ENUM,
+		LOOKUP_RESULT_CLASS_TBD_GLOBALSCOPE, // Deprecated.
+		LOOKUP_RESULT_CLASS_ANNOTATION,
+		LOOKUP_RESULT_LOCAL_CONSTANT,
+		LOOKUP_RESULT_LOCAL_VARIABLE,
+		LOOKUP_RESULT_MAX,
+	};
+
+	struct LookupResult {
+		LookupResultType type;
+
+		// For `CLASS_*`.
+		String class_name;
+		String class_member;
+
+		// For `LOCAL_*`.
+		String description;
+		bool is_deprecated = false;
+		String deprecated_message;
+		bool is_experimental = false;
+		String experimental_message;
+
+		// For `LOCAL_*`.
+		String doc_type;
+		String enumeration;
+		bool is_bitfield = false;
+
+		// For `LOCAL_*`.
+		String value;
+
+		// `SCRIPT_LOCATION` and `LOCAL_*` must have, `CLASS_*` can have.
+		Ref<Script> script;
+		String script_path;
+		
+		int location = -1;
+	};
+	
+	enum TemplateLocation {
+		TEMPLATE_BUILT_IN,
+		TEMPLATE_EDITOR,
+		TEMPLATE_PROJECT
+	};
+
+	struct ScriptTemplate {
+		String inherit = "Object";
+		String name;
+		String description;
+		String content;
+		int id = 0;
+		TemplateLocation origin = TemplateLocation::TEMPLATE_BUILT_IN;
+
+		String get_hash() const {
+			return itos(origin) + inherit + name;
+		}
+	};
+	
 	bool debug_break(const String& p_error, bool p_allow_continue = true);
 	bool debug_break_parse(const String& p_file, int p_line, const String& p_error);
 

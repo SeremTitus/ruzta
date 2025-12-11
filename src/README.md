@@ -15,7 +15,7 @@ Ruzta is:
 
 Ruzta is integrated into Godot as a module. Since modules are optional, this means that Godot may be built without Ruzta and work perfectly fine without it!
 
-The Ruzta module interfaces with Godot's codebase by inheriting from the engine's scripting-related classes. New languages inherit from [`ScriptLanguage`](/core/object/script_language.h), and are registered in Godot's [`ScriptServer`](/core/object/script_language.h). Scripts, referring to a file containing code, are represented in the engine by the `Script` class. Instances of that script, which are used at runtime when actually executing the code, inherit from [`ScriptInstance`](/core/object/script_instance.h).
+The Ruzta module interfaces with Godot's codebase by inheriting from the engine's scripting-related classes. New languages inherit from [`ScriptLanguage`](/core/object/script_language.h), and are registered in Godot's [`RuztaScriptServer`](/core/object/script_language.h). Scripts, referring to a file containing code, are represented in the engine by the `Script` class. Instances of that script, which are used at runtime when actually executing the code, inherit from [`ScriptInstance`](/core/object/script_instance.h).
 
 To access Godot's internal classes, Ruzta uses [`ClassDB`](/core/object/class_db.h). `ClassDB` is where Godot registers classes, methods and properties that it wants exposed to its scripting system. This is how Ruzta understands that `Node2D` is a class it can use, and that it has a `get_parent()` method.
 
