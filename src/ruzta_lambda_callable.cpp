@@ -249,7 +249,7 @@ void RuztaLambdaSelfCallable::call(const Variant **p_arguments, int p_argcount, 
 			args[i + captures_amount] = p_arguments[i];
 		}
 
-		r_return_value = function->call(static_cast<RuztaInstance *>(godot::internal::gdextension_interface_object_get_script_instance(object, RuztaLanguage::get_singleton()))), args, total_argcount, r_call_error);
+		r_return_value = function->call(static_cast<RuztaInstance *>(godot::internal::gdextension_interface_object_get_script_instance(object, RuztaLanguage::get_singleton())), args, total_argcount, r_call_error);
 		switch (r_call_error.error) {
 			case GDExtensionCallErrorType::GDEXTENSION_CALL_ERROR_INVALID_ARGUMENT:
 				r_call_error.argument -= captures_amount;

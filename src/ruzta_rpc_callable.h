@@ -36,6 +36,7 @@
 // #include <godot_cpp/variant/variant.hpp> // original: core/variant/variant.h
 #include <godot_cpp/variant/string_name.hpp> // original: 
 #include <godot_cpp/classes/object.hpp> // original: 
+#include <godot_cpp/classes/node.hpp> // original: 
 // #include <godot_cpp/core/object_id.hpp> // original: 
 #include <godot_cpp/variant/callable_custom.hpp> // original:
 
@@ -43,7 +44,7 @@ using namespace godot;
 // class Node;
 
 class RuztaRPCCallable : public CallableCustom {
-	godot::Object *object = nullptr;
+	Object *object = nullptr;
 	Node *node = nullptr;
 	StringName method;
 	uint32_t h = 0;

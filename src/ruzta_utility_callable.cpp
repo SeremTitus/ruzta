@@ -31,7 +31,7 @@
 /**************************************************************************/
 
 #include "ruzta_utility_callable.h"
-#include "ruzta_variant_extension.h"
+#include "ruzta_variant/ruzta_variant_extension.h"
 
 bool RuztaUtilityCallable::compare_equal(const CallableCustom *p_a, const CallableCustom *p_b) {
 	return p_a->hash() == p_b->hash();

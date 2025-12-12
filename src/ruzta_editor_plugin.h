@@ -37,9 +37,12 @@
 #include <godot_cpp/classes/editor_export_preset.hpp> // original:
 #include <godot_cpp/classes/editor_plugin.hpp> // original:
 #include <godot_cpp/classes/editor_settings.hpp> // original:
+#ifdef TOOLS_ENABLED
 #include <godot_cpp/classes/editor_interface.hpp> // original:
 
 using namespace godot;
+
+class EditorExportRuzta;
 
 class RuztaEditorPlugin : public EditorPlugin {
 	GDCLASS(RuztaEditorPlugin, EditorPlugin);
@@ -72,5 +75,6 @@ protected:
 public:
 	virtual String _get_name() const override { return "Ruzta"; }
 };
+#endif // TOOLS_ENABLED
 
 void register_plugin_types();

@@ -60,7 +60,7 @@ private:
 		bool is_comment = false; // `TYPE_COMMENT` or `TYPE_CODE_REGION`.
 	};
 	Vector<ColorRegion> color_regions;
-	HashMap<int, int> color_region_cache;
+	mutable HashMap<int, int> color_region_cache;
 
 	HashMap<StringName, Color> class_names;
 	HashMap<StringName, Color> reserved_keywords;
@@ -114,7 +114,7 @@ private:
 
 public:
 	virtual void _update_cache() override;
-	virtual Dictionary _get_line_syntax_highlighting_impl(int p_line) override;
+	virtual Dictionary _get_line_syntax_highlighting(int p_line) const override;
 
 	virtual String _get_name() const override;
 	virtual PackedStringArray _get_supported_languages() const override;

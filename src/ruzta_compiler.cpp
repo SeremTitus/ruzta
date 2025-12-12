@@ -39,6 +39,27 @@
 
 #include <godot_cpp/classes/engine.hpp> // original: core/config/engine.h
 #include <godot_cpp/classes/project_settings.hpp> // original: core/config/project_settings.h
+#include <godot_cpp/variant/utility_functions.hpp>
+#include "ruzta_script_server.h"
+
+
+
+static void ClassDB_get_method_info(const StringName &p_class, const StringName &p_method, MethodInfo *r_info) {
+	TypedArray<Dictionary> methods = ClassDB::class_get_method_list(p_class);
+	for (int i = 0; i < methods.size(); i++) {
+		Dictionary m = methods[i];
+		if (m["name"] == p_method) {
+			r_info->name = m["name"];
+			r_info->flags = (uint32_t)m["flags"];
+			r_info->return_val = PropertyInfo::from_dict(m["return"]);
+			Array args = m["args"];
+			for (int j = 0; j < args.size(); j++) {
+				r_info->arguments.push_back(PropertyInfo::from_dict(args[j]));
+			}
+			return;
+		}
+	}
+}
 
 // TODO: #include "scene/scene_string_names.h" // original: scene/scene_string_names.h
 
@@ -173,7 +194,7 @@ RuztaDataType RuztaCompiler::_gdtype_from_datatype(const RuztaParser::DataType &
 				Error err = OK;
 				script = RuztaCache::get_shallow_script(p_datatype.script_path, err, p_owner->path);
 				if (err) {
-					_set_error(vformat(R"(Could not find script "%s": %s)", p_datatype.script_path, error_names[err]), nullptr);
+					_set_error(vformat(R"(Could not find script "%s": %s)", p_datatype.script_path, UtilityFunctions::error_string(err)), nullptr);
 					return RuztaDataType();
 				}
 			}
@@ -255,7 +276,7 @@ static bool _can_use_validate_call(const MethodBind *p_method, const Vector<Ruzt
 		return false;
 	}
 	MethodInfo info;
-	ClassDB::get_method_info(p_method->get_instance_class(), p_method->get_name(), &info);
+	ClassDB_get_method_info(p_method->get_instance_class(), p_method->get_name(), &info);
 	for (int64_t i = 0; i < info.arguments.size(); ++i) {
 		if (!_is_exact_type(info.arguments[i], p_arguments[i].type)) {
 			return false;
@@ -397,7 +418,7 @@ RuztaCodeGenerator::Address RuztaCompiler::_parse_expression(CodeGen &codegen, E
 							}
 						}
 
-						owner = owner->_owner;
+						owner = owner->_owner_script;
 					}
 				} break;
 				case RuztaParser::IdentifierNode::STATIC_VARIABLE: {
@@ -432,8 +453,8 @@ RuztaCodeGenerator::Address RuztaCompiler::_parse_expression(CodeGen &codegen, E
 					if (RuztaLanguage::get_singleton()->get_global_map().has(identifier)) {
 						// If it's an autoload singleton, we postpone to load it at runtime.
 						// This is so one autoload doesn't try to load another before it's compiled.
-						HashMap<StringName, ProjectSettings::AutoloadInfo> autoloads = ProjectSettings::get_singleton()->get_autoload_list();
-						if (autoloads.has(identifier) && autoloads[identifier].is_singleton) {
+						String autoload_path = ProjectSettings::get_singleton()->get_setting("autoload/" + identifier);
+						if (!autoload_path.is_empty() && autoload_path.begins_with("*")) {
 							RuztaCodeGenerator::Address global = codegen.add_temporary(_gdtype_from_datatype(in->get_datatype(), codegen.script));
 							int idx = RuztaLanguage::get_singleton()->get_global_map()[identifier];
 							gen->write_store_global(global, idx);
@@ -2367,7 +2388,9 @@ RuztaFunction *RuztaCompiler::_parse_function(Error &r_error, Ruzta *p_script, c
 			method_info.flags |= METHOD_FLAG_VARARG;
 		}
 
-		method_info.default_arguments.append_array(p_func->default_arg_values);
+		for(int i=0; i < p_func->default_arg_values.size(); i++) {
+			method_info.default_arguments.push_back(p_func->default_arg_values[i]);
+		}
 	}
 
 	// Parse initializer if applies.
@@ -2812,7 +2835,7 @@ Error RuztaCompiler::_prepare_compilation(Ruzta *p_script, const RuztaParser::Cl
 				Error err = OK;
 				Ref<Ruzta> base_root = RuztaCache::get_shallow_script(base->path, err, p_script->path);
 				if (err) {
-					_set_error(vformat(R"(Could not parse base class "%s" from "%s": %s)", base->fully_qualified_name, base->path, error_names[err]), nullptr);
+					_set_error(vformat(R"(Could not parse base class "%s" from "%s": %s)", base->fully_qualified_name, base->path, UtilityFunctions::error_string(err)), nullptr);
 					return err;
 				}
 				if (base_root.is_valid()) {

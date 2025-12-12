@@ -2,6 +2,7 @@
 
 #include <godot_cpp/classes/mutex.hpp>			   // original:
 #include <godot_cpp/classes/script_language.hpp>   // original:
+#include <godot_cpp/classes/script_backtrace.hpp>  // original:
 
 using namespace godot;
 

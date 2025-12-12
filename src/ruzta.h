@@ -35,7 +35,8 @@
 #include <godot_cpp/classes/engine_debugger.hpp>  // original: core/debugger/engine_debugger.h
 
 #include "ruzta_function.h"
-#include "ruzta_cache.h"
+// removed ruzta_cache.h include to fix circular dependency
+class RuztaCache;
 // TODO: #include "core/debugger/script_debugger.h" // original: core/debugger/script_debugger.h
 #include <godot_cpp/classes/mutex.hpp>						// original:
 #include <godot_cpp/classes/resource_format_loader.hpp>		// original:
@@ -50,305 +51,6 @@
 
 #include "ruzta_variant/core_constants.h"  // original:
 #include "ruzta_variant/doc_data.h"		   // original: doc_data.h
-
-class RuztaNativeClass : public RefCounted {
-	GDCLASS(RuztaNativeClass, RefCounted);
-
-	StringName name;
-
-   protected:
-	bool _get(const StringName& p_name, Variant& r_ret) const;
-	static void _bind_methods() { ClassDB::bind_method(D_METHOD("new"), &RuztaNativeClass::_new); }
-
-   public:
-	_FORCE_INLINE_ const StringName& get_name() const { return name; }
-	Variant _new();
-	Object* instantiate();
-	Variant callp(const StringName& p_method, const Variant** p_args, int p_argcount, GDExtensionCallError& r_error);
-	RuztaNativeClass(const StringName& p_name) { name = p_name; };
-};
-
-class Ruzta : public ScriptExtension {
-	GDCLASS(Ruzta, ScriptExtension);
-	bool tool = false;
-	bool valid = false;
-	bool reloading = false;
-	bool is_abstract = false;
-
-	struct MemberInfo {
-		int index = 0;
-		StringName setter;
-		StringName getter;
-		RuztaDataType data_type;
-		PropertyInfo property_info;
-	};
-
-	struct ClearData {
-		RBSet<RuztaFunction*> functions;
-		RBSet<Ref<Script>> scripts;
-		void clear() {
-			functions.clear();
-			scripts.clear();
-		}
-	};
-
-	friend class RuztaInstance;
-	friend class RuztaFunction;
-	friend class RuztaAnalyzer;
-	friend class RuztaCompiler;
-	friend class RuztaDocGen;
-	friend class RuztaLambdaCallable;
-	friend class RuztaLambdaSelfCallable;
-	friend class RuztaLanguage;
-	friend struct RuztaUtilityFunctionsDefinitions;
-
-	Ref<RuztaNativeClass> native;
-	Ref<Ruzta> base;
-	Ruzta* _owner = nullptr;  // for subclasses
-
-	// Members are just indices to the instantiated script.
-	HashMap<StringName, MemberInfo> member_indices;	 // Includes member info of all base Ruzta classes.
-	HashSet<StringName> members;					 // Only members of the current class.
-
-	// Only static variables of the current class.
-	HashMap<StringName, MemberInfo> static_variables_indices;
-	Vector<Variant> static_variables;  // Static variable values.
-
-	HashMap<StringName, Variant> constants;
-	HashMap<StringName, RuztaFunction*> member_functions;
-	HashMap<StringName, Ref<Ruzta>> subclasses;
-	HashMap<StringName, MethodInfo> _signals;
-	Dictionary rpc_config;
-
-   public:
-	struct LambdaInfo {
-		int capture_count;
-		bool use_self;
-	};
-
-   private:
-	HashMap<RuztaFunction*, LambdaInfo> lambda_info;
-
-   public:
-	class UpdatableFuncPtr {
-		friend class Ruzta;
-
-		RuztaFunction* ptr = nullptr;
-		Ruzta* script = nullptr;
-		List<UpdatableFuncPtr*>::Element* list_element = nullptr;
-
-	   public:
-		RuztaFunction* operator->() const { return ptr; }
-		operator RuztaFunction*() const { return ptr; }
-
-		UpdatableFuncPtr(RuztaFunction* p_function);
-		~UpdatableFuncPtr();
-	};
-
-   private:
-	// List is used here because a ptr to elements are stored, so the memory locations need to be stable
-	List<UpdatableFuncPtr*> func_ptrs_to_update;
-	Mutex func_ptrs_to_update_mutex;
-
-	void _recurse_replace_function_ptrs(const HashMap<RuztaFunction*, RuztaFunction*>& p_replacements) const;
-
-#ifdef TOOLS_ENABLED
-	// For static data storage during hot-reloading.
-	HashMap<StringName, MemberInfo> old_static_variables_indices;
-	Vector<Variant> old_static_variables;
-	void _save_old_static_data();
-	void _restore_old_static_data();
-
-	HashMap<StringName, int> member_lines;
-	HashMap<StringName, Variant> member_default_values;
-	List<PropertyInfo> members_cache;
-	HashMap<StringName, Variant> member_default_values_cache;
-	Ref<Ruzta> base_cache;
-	HashSet<ObjectID> inheriters_cache;
-	bool source_changed_cache = false;
-	bool placeholder_fallback_enabled = false;
-	void _update_exports_values(HashMap<StringName, Variant>& values, List<PropertyInfo>& propnames);
-
-	StringName doc_class_name;
-	RuztaDocData::ClassDoc doc;
-	Vector<RuztaDocData::ClassDoc> docs;
-	void _add_doc(const RuztaDocData::ClassDoc& p_doc);
-	void _clear_doc();
-#endif
-
-	RuztaFunction* initializer = nullptr;  // Direct pointer to `new()`/`_init()` member function, faster to locate.
-
-	RuztaFunction* implicit_initializer = nullptr;	// `@implicit_new()` special function.
-	RuztaFunction* implicit_ready = nullptr;		// `@implicit_ready()` special function.
-	RuztaFunction* static_initializer = nullptr;	// `@static_initializer()` special function.
-
-	Error _static_init();
-	void _static_default_init();  // Initialize static variables with default values based on their types.
-
-	RBSet<Object*> instances;
-	bool destructing = false;
-	bool clearing = false;
-	// exported members
-	String source;
-	Vector<uint8_t> binary_tokens;
-	String path;
-	bool path_valid = false;  // False if using default path.
-	StringName local_name;	  // Inner class identifier or `class_name`.
-	StringName global_name;	  // `class_name`.
-	String fully_qualified_name;
-	String simplified_icon_path;
-	SelfList<Ruzta> script_list;
-
-	SelfList<RuztaFunctionState>::List pending_func_states;
-
-	RuztaFunction* _super_constructor(Ruzta* p_script);
-	void _super_implicit_constructor(Ruzta* p_script, RuztaInstance* p_instance, GDExtensionCallError& r_error);
-	RuztaInstance* _create_instance(const Variant** p_args, int p_argcount, Object* p_owner, GDExtensionCallError& r_error);
-
-	String _get_debug_path() const;
-
-#ifdef TOOLS_ENABLED
-	HashSet<PlaceHolderScriptInstance*> placeholders;
-	void _update_exports_down(bool p_base_exports_changed);
-#endif
-
-#ifdef DEBUG_ENABLED
-	HashMap<ObjectID, List<Pair<StringName, Variant>>> pending_reload_state;
-#endif
-
-	bool _update_exports(bool* r_err, bool p_recursive_call = false, PlaceHolderScriptInstance* p_instance_to_update = nullptr, bool p_base_exports_changed = false);
-
-	void _save_orphaned_subclasses(Ruzta::ClearData* p_clear_data);
-
-	Ruzta* _get_ruzta_from_variant(const Variant& p_variant);
-	void _collect_function_dependencies(RuztaFunction* p_func, RBSet<Ruzta*>& p_dependencies, const Ruzta* p_except);
-	void _collect_dependencies(RBSet<Ruzta*>& p_dependencies, const Ruzta* p_except);
-
-   protected:
-	bool _get(const StringName& p_name, Variant& r_ret) const;
-	bool _set(const StringName& p_name, const Variant& p_value);
-	void _get_property_list(List<PropertyInfo>* p_properties) const;
-
-	Variant callp(const StringName& p_method, const Variant** p_args, int p_argcount, GDExtensionCallError& r_error);
-
-	static void _bind_methods() { ClassDB::bind_vararg_method(METHOD_FLAGS_DEFAULT, "new", &Ruzta::_new, MethodInfo("new")); }
-
-   public:
-	Variant _new(const Variant** p_args, int p_argcount, GDExtensionCallError& r_error);
-#ifdef TOOL_ENABLED
-	virtual bool _editor_can_reload_from_file() override { return true; }
-	virtual void _placeholder_erased(void* p_placeholder) override { placeholders.erase(p_placeholder); }
-#endif
-	virtual bool _can_instantiate() const override { return valid; }
-	virtual Ref<Script> _get_base_script() const override { return base; }
-	virtual StringName _get_global_name() const override { return global_name; }
-	bool _inherits_script(const Ref<Script>& p_script) const override;
-	virtual StringName _get_instance_base_type() const override;  // this may not work in all scripts, will return empty if so
-	virtual void* _instance_create(Object* p_this) const override;
-	virtual void* _placeholder_instance_create(Object* p_this) const override;
-	virtual bool _instance_has(Object* p_this) const override;
-	virtual bool _has_source_code() const override { return !source.is_empty(); }
-	virtual String _get_source_code() const override { return source; }
-	virtual void _set_source_code(const String& p_code) override;
-	virtual Error _reload(bool p_keep_state = false) override;
-#ifdef TOOLS_ENABLED
-	virtual StringName _get_doc_class_name() const override { return doc_class_name; }
-	virtual godot::TypedArray<Dictionary> _get_documentation() const override;
-	virtual String _get_class_icon_path() const override { return simplified_icon_path; }
-#endif
-	virtual bool _has_method(const StringName& p_method) const override { return member_functions.has(p_method); }
-	virtual bool _has_static_method(const StringName& p_method) const override;
-	virtual Variant _get_script_method_argument_count(const StringName& p_method) const override;
-	virtual Dictionary _get_method_info(const StringName& p_method) const override;
-	virtual bool _is_tool() const override { return tool; }
-	virtual bool _is_valid() const override { return valid; }
-	virtual bool _is_abstract() const override { return is_abstract; }
-	virtual ScriptLanguage* _get_language() const override;
-	virtual bool _has_script_signal(const StringName& p_signal) const override;
-	virtual godot::TypedArray<Dictionary> _get_script_signal_list() const override;
-	virtual bool _has_property_default_value(const StringName& p_property) const override;
-	virtual Variant _get_property_default_value(const StringName& p_property) const override;
-	virtual void _update_exports() override;
-	virtual godot::TypedArray<Dictionary> _get_script_method_list() const override;
-	virtual godot::TypedArray<Dictionary> _get_script_property_list() const override;
-
-	virtual int _get_member_line(const StringName& p_member) const override {
-#ifdef TOOLS_ENABLED
-		if (member_lines.has(p_member)) {
-			return member_lines[p_member];
-		}
-#endif
-		return -1;
-	}
-
-	virtual Dictionary _get_constants() const override;
-	virtual godot::TypedArray<StringName> _get_members() const override;
-#ifdef TOOLS_ENABLED
-	bool is_placeholder_fallback_enabled() const { return placeholder_fallback_enabled; }
-#endif
-	virtual Variant _get_rpc_config() const override { return rpc_config; }
-
-#ifdef DEBUG_ENABLED
-	static String debug_get_script_name(const Ref<Script>& p_script);
-#endif
-
-	static String canonicalize_path(const String& p_path);
-	_FORCE_INLINE_ static bool is_canonically_equal_paths(const String& p_path_a, const String& p_path_b) {
-		return canonicalize_path(p_path_a) == canonicalize_path(p_path_b);
-	}
-
-	_FORCE_INLINE_ StringName get_local_name() const { return local_name; }
-
-	void clear(Ruzta::ClearData* p_clear_data = nullptr);
-
-	// Cancels all functions of the script that are are waiting to be resumed after using await.
-	void cancel_pending_functions(bool warn);
-
-	Ruzta* find_class(const String& p_qualified_name);
-	bool has_class(const Ruzta* p_script);
-	Ruzta* get_root_script();
-	bool is_root_script() const { return _owner == nullptr; }
-	String get_fully_qualified_name() const { return fully_qualified_name; }
-	const HashMap<StringName, Ref<Ruzta>>& get_subclasses() const { return subclasses; }
-	const HashMap<StringName, Variant>& get_constants() const { return constants; }
-	const HashSet<StringName>& get_members() const { return members; }
-	const RuztaDataType& get_member_type(const StringName& p_member) const {
-		CRASH_COND(!member_indices.has(p_member));
-		return member_indices[p_member].data_type;
-	}
-	const Ref<RuztaNativeClass>& get_native() const { return native; }
-
-	_FORCE_INLINE_ const HashMap<StringName, RuztaFunction*>& get_member_functions() const { return member_functions; }
-	_FORCE_INLINE_ const HashMap<RuztaFunction*, LambdaInfo>& get_lambda_info() const { return lambda_info; }
-
-	_FORCE_INLINE_ const RuztaFunction* get_implicit_initializer() const { return implicit_initializer; }
-	_FORCE_INLINE_ const RuztaFunction* get_implicit_ready() const { return implicit_ready; }
-	_FORCE_INLINE_ const RuztaFunction* get_static_initializer() const { return static_initializer; }
-
-	RBSet<Ruzta*> get_dependencies();
-	HashMap<Ruzta*, RBSet<Ruzta*>> get_all_dependencies();
-	RBSet<Ruzta*> get_must_clear_dependencies();
-
-	Ref<Ruzta> get_base() const { return base; }
-
-	const HashMap<StringName, MemberInfo>& debug_get_member_indices() const { return member_indices; }
-	const HashMap<StringName, RuztaFunction*>& debug_get_member_functions() const { return member_functions; }	// this is debug only
-	StringName debug_get_member_by_index(int p_idx) const;
-	StringName debug_get_static_var_by_index(int p_idx) const;
-
-	void set_path(const String& p_path, bool p_take_over = false);
-	String get_script_path() const;
-	Error load_source_code(const String& p_path);
-
-	void set_binary_tokens_source(const Vector<uint8_t>& p_binary_tokens) { binary_tokens = p_binary_tokens; }
-	const Vector<uint8_t>& get_binary_tokens_source() const { return binary_tokens; }
-	Vector<uint8_t> get_as_binary_tokens() const;
-
-	void unload_static() const { RuztaCache::remove_script(fully_qualified_name); }
-
-	Ruzta();
-	~Ruzta();
-};
 
 class ScriptInstance {
    public:
@@ -459,6 +161,309 @@ class PlaceHolderScriptInstance : public ScriptInstance {
 
 	PlaceHolderScriptInstance(ScriptLanguage* p_language, Ref<Script> p_script, Object* p_owner);
 	~PlaceHolderScriptInstance();
+};
+
+class RuztaNativeClass : public RefCounted {
+	GDCLASS(RuztaNativeClass, RefCounted);
+
+	StringName name;
+
+   protected:
+	bool _get(const StringName& p_name, Variant& r_ret) const;
+	static void _bind_methods() { ClassDB::bind_method(D_METHOD("new"), &RuztaNativeClass::_new); }
+
+   public:
+	_FORCE_INLINE_ const StringName& get_name() const { return name; }
+	Variant _new();
+	Object* instantiate();
+	Variant callp(const StringName& p_method, const Variant** p_args, int p_argcount, GDExtensionCallError& r_error);
+	RuztaNativeClass(const StringName& p_name) { name = p_name; };
+};
+
+class Ruzta : public ScriptExtension {
+	GDCLASS(Ruzta, ScriptExtension);
+	bool tool = false;
+	bool valid = false;
+	bool reloading = false;
+	bool is_abstract = false;
+
+	struct MemberInfo {
+		int index = 0;
+		StringName setter;
+		StringName getter;
+		RuztaDataType data_type;
+		PropertyInfo property_info;
+	};
+
+	struct ClearData {
+		RBSet<RuztaFunction*> functions;
+		RBSet<Ref<Script>> scripts;
+		void clear() {
+			functions.clear();
+			scripts.clear();
+		}
+	};
+
+	friend class RuztaInstance;
+	friend class RuztaFunction;
+	friend class RuztaAnalyzer;
+	friend class RuztaCompiler;
+	friend class RuztaDocGen;
+	friend class RuztaLambdaCallable;
+	friend class RuztaLambdaSelfCallable;
+	friend class RuztaLanguage;
+	friend struct RuztaUtilityFunctionsDefinitions;
+	template<class T> friend class Ref;  // For godot-cpp reference counting
+
+	Ref<RuztaNativeClass> native;
+	Ref<Ruzta> base;
+	Ruzta* _owner_script = nullptr;  // for subclasses
+
+	// Members are just indices to the instantiated script.
+	HashMap<StringName, MemberInfo> member_indices;	 // Includes member info of all base Ruzta classes.
+	HashSet<StringName> members;					 // Only members of the current class.
+
+	// Only static variables of the current class.
+	HashMap<StringName, MemberInfo> static_variables_indices;
+	Vector<Variant> static_variables;  // Static variable values.
+
+	HashMap<StringName, Variant> constants;
+	HashMap<StringName, RuztaFunction*> member_functions;
+	HashMap<StringName, Ref<Ruzta>> subclasses;
+	HashMap<StringName, MethodInfo> _signals;
+	Dictionary rpc_config;
+
+   public:
+	struct LambdaInfo {
+		int capture_count;
+		bool use_self;
+	};
+
+   private:
+	HashMap<RuztaFunction*, LambdaInfo> lambda_info;
+
+   public:
+	class UpdatableFuncPtr {
+		friend class Ruzta;
+
+		RuztaFunction* ptr = nullptr;
+		Ruzta* script = nullptr;
+		List<UpdatableFuncPtr*>::Element* list_element = nullptr;
+
+	   public:
+		RuztaFunction* operator->() const { return ptr; }
+		operator RuztaFunction*() const { return ptr; }
+
+		UpdatableFuncPtr(RuztaFunction* p_function);
+		~UpdatableFuncPtr();
+	};
+
+	// List is used here because a ptr to elements are stored, so the memory locations need to be stable
+	List<UpdatableFuncPtr*> func_ptrs_to_update;
+	Mutex* func_ptrs_to_update_mutex = nullptr;
+	
+	private:
+	void _recurse_replace_function_ptrs(const HashMap<RuztaFunction*, RuztaFunction*>& p_replacements) const;
+
+#ifdef TOOLS_ENABLED
+	// For static data storage during hot-reloading.
+	HashMap<StringName, MemberInfo> old_static_variables_indices;
+	Vector<Variant> old_static_variables;
+	void _save_old_static_data();
+	void _restore_old_static_data();
+
+	HashMap<StringName, int> member_lines;
+	HashMap<StringName, Variant> member_default_values;
+	List<PropertyInfo> members_cache;
+	HashMap<StringName, Variant> member_default_values_cache;
+	Ref<Ruzta> base_cache;
+	HashSet<ObjectID> inheriters_cache;
+	bool source_changed_cache = false;
+	bool placeholder_fallback_enabled = false;
+	void _update_exports_values(HashMap<StringName, Variant>& values, List<PropertyInfo>& propnames);
+
+	StringName doc_class_name;
+	RuztaDocData::ClassDoc doc;
+	Vector<RuztaDocData::ClassDoc> docs;
+	void _add_doc(const RuztaDocData::ClassDoc& p_doc);
+	void _clear_doc();
+#endif
+
+	RuztaFunction* initializer = nullptr;  // Direct pointer to `new()`/`_init()` member function, faster to locate.
+
+	RuztaFunction* implicit_initializer = nullptr;	// `@implicit_new()` special function.
+	RuztaFunction* implicit_ready = nullptr;		// `@implicit_ready()` special function.
+	RuztaFunction* static_initializer = nullptr;	// `@static_initializer()` special function.
+
+	Error _static_init();
+	void _static_default_init();  // Initialize static variables with default values based on their types.
+
+	RBSet<Object*> instances;
+	bool destructing = false;
+	bool clearing = false;
+	// exported members
+	String source;
+	Vector<uint8_t> binary_tokens;
+	String path;
+	bool path_valid = false;  // False if using default path.
+	StringName local_name;	  // Inner class identifier or `class_name`.
+	StringName global_name;	  // `class_name`.
+	String fully_qualified_name;
+	String simplified_icon_path;
+	SelfList<Ruzta> script_list;
+
+	SelfList<RuztaFunctionState>::List pending_func_states;
+
+	RuztaFunction* _super_constructor(Ruzta* p_script);
+	void _super_implicit_constructor(Ruzta* p_script, RuztaInstance* p_instance, GDExtensionCallError& r_error);
+	RuztaInstance* _create_instance(const Variant** p_args, int p_argcount, Object* p_owner, GDExtensionCallError& r_error);
+
+	String _get_debug_path() const;
+
+#ifdef TOOLS_ENABLED
+	HashSet<PlaceHolderScriptInstance*> placeholders;
+	void _update_exports_down(bool p_base_exports_changed);
+#endif
+
+#ifdef DEBUG_ENABLED
+	HashMap<ObjectID, List<Pair<StringName, Variant>>> pending_reload_state;
+#endif
+
+	// TODO: _update_exports signature is incompatible with godot-cpp ScriptExtension
+	// bool _update_exports(bool* r_err, bool p_recursive_call = false, PlaceHolderScriptInstance* p_instance_to_update = nullptr, bool p_base_exports_changed = false);
+
+	void _save_orphaned_subclasses(Ruzta::ClearData* p_clear_data);
+
+	Ruzta* _get_ruzta_from_variant(const Variant& p_variant);
+	void _collect_function_dependencies(RuztaFunction* p_func, RBSet<Ruzta*>& p_dependencies, const Ruzta* p_except);
+	void _collect_dependencies(RBSet<Ruzta*>& p_dependencies, const Ruzta* p_except);
+
+   protected:
+	bool _get(const StringName& p_name, Variant& r_ret) const;
+	bool _set(const StringName& p_name, const Variant& p_value);
+	void _get_property_list(List<PropertyInfo>* p_properties) const;
+
+	Variant callp(const StringName& p_method, const Variant** p_args, GDExtensionInt p_argcount, GDExtensionCallError& r_error);
+
+	static void _bind_methods() { ClassDB::bind_vararg_method(METHOD_FLAGS_DEFAULT, "new", &Ruzta::_new, MethodInfo("new")); }
+
+   public:
+	Variant _new(const Variant** p_args, GDExtensionInt p_argcount, GDExtensionCallError& r_error);
+#ifdef TOOL_ENABLED
+	virtual bool _editor_can_reload_from_file() override { return true; }
+	virtual void _placeholder_erased(void* p_placeholder) override { placeholders.erase(p_placeholder); }
+#endif
+	virtual bool _can_instantiate() const override { return valid; }
+	virtual Ref<Script> _get_base_script() const override { return base; }
+	virtual StringName _get_global_name() const override { return global_name; }
+	bool _inherits_script(const Ref<Script>& p_script) const override;
+	virtual StringName _get_instance_base_type() const override;  // this may not work in all scripts, will return empty if so
+	virtual void* _instance_create(Object* p_this) const override;
+	virtual void* _placeholder_instance_create(Object* p_this) const override;
+	virtual bool _instance_has(Object* p_this) const override;
+	virtual bool _has_source_code() const override { return !source.is_empty(); }
+	virtual String _get_source_code() const override { return source; }
+	virtual void _set_source_code(const String& p_code) override;
+	virtual Error _reload(bool p_keep_state = false) override;
+#ifdef TOOLS_ENABLED
+	virtual StringName _get_doc_class_name() const override { return doc_class_name; }
+	virtual godot::TypedArray<Dictionary> _get_documentation() const override;
+	virtual String _get_class_icon_path() const override { return simplified_icon_path; }
+#endif
+	virtual bool _has_method(const StringName& p_method) const override { return member_functions.has(p_method); }
+	virtual bool _has_static_method(const StringName& p_method) const override;
+	virtual Variant _get_script_method_argument_count(const StringName& p_method) const override;
+	virtual Dictionary _get_method_info(const StringName& p_method) const override;
+	virtual bool _is_tool() const override { return tool; }
+	virtual bool _is_valid() const override { return valid; }
+	virtual bool _is_abstract() const override { return is_abstract; }
+	virtual ScriptLanguage* _get_language() const override;
+	virtual bool _has_script_signal(const StringName& p_signal) const override;
+	virtual godot::TypedArray<Dictionary> _get_script_signal_list() const override;
+	virtual bool _has_property_default_value(const StringName& p_property) const override;
+	virtual Variant _get_property_default_value(const StringName& p_property) const override;
+	virtual void _update_exports() override;
+	virtual godot::TypedArray<Dictionary> _get_script_method_list() const override;
+	virtual godot::TypedArray<Dictionary> _get_script_property_list() const override;
+
+	virtual int _get_member_line(const StringName& p_member) const override {
+#ifdef TOOLS_ENABLED
+		if (member_lines.has(p_member)) {
+			return member_lines[p_member];
+		}
+#endif
+		return -1;
+	}
+
+	virtual Dictionary _get_constants() const override;
+	virtual godot::TypedArray<StringName> _get_members() const override;
+#ifdef TOOLS_ENABLED
+	bool is_placeholder_fallback_enabled() const { return placeholder_fallback_enabled; }
+#endif
+	virtual Variant _get_rpc_config() const override { return rpc_config; }
+
+	bool is_valid() const { return valid; }
+
+#ifdef DEBUG_ENABLED
+	static String debug_get_script_name(const Ref<Script>& p_script);
+#endif
+
+	static String canonicalize_path(const String& p_path);
+	_FORCE_INLINE_ static bool is_canonically_equal_paths(const String& p_path_a, const String& p_path_b) {
+		return canonicalize_path(p_path_a) == canonicalize_path(p_path_b);
+	}
+
+	_FORCE_INLINE_ StringName get_local_name() const { return local_name; }
+
+	void clear(Ruzta::ClearData* p_clear_data = nullptr);
+
+	// Cancels all functions of the script that are are waiting to be resumed after using await.
+	void cancel_pending_functions(bool warn);
+
+	Ruzta* find_class(const String& p_qualified_name);
+	bool has_class(const Ruzta* p_script);
+	Ruzta* get_root_script();
+	bool is_root_script() const { return _owner_script == nullptr; }
+	String get_fully_qualified_name() const { return fully_qualified_name; }
+	const HashMap<StringName, Ref<Ruzta>>& get_subclasses() const { return subclasses; }
+	const HashMap<StringName, Variant>& get_constants() const { return constants; }
+	const HashSet<StringName>& get_members() const { return members; }
+	const RuztaDataType& get_member_type(const StringName& p_member) const {
+		CRASH_COND(!member_indices.has(p_member));
+		return member_indices[p_member].data_type;
+	}
+	const Ref<RuztaNativeClass>& get_native() const { return native; }
+
+	_FORCE_INLINE_ const HashMap<StringName, RuztaFunction*>& get_member_functions() const { return member_functions; }
+	_FORCE_INLINE_ const HashMap<RuztaFunction*, LambdaInfo>& get_lambda_info() const { return lambda_info; }
+
+	_FORCE_INLINE_ const RuztaFunction* get_implicit_initializer() const { return implicit_initializer; }
+	_FORCE_INLINE_ const RuztaFunction* get_implicit_ready() const { return implicit_ready; }
+	_FORCE_INLINE_ const RuztaFunction* get_static_initializer() const { return static_initializer; }
+
+	RBSet<Ruzta*> get_dependencies();
+	HashMap<Ruzta*, RBSet<Ruzta*>> get_all_dependencies();
+	RBSet<Ruzta*> get_must_clear_dependencies();
+
+	Ref<Ruzta> get_base() const { return base; }
+
+	const HashMap<StringName, MemberInfo>& debug_get_member_indices() const { return member_indices; }
+	const HashMap<StringName, RuztaFunction*>& debug_get_member_functions() const { return member_functions; }	// this is debug only
+	StringName debug_get_member_by_index(int p_idx) const;
+	StringName debug_get_static_var_by_index(int p_idx) const;
+
+	void set_path(const String& p_path, bool p_take_over = false);
+	String get_script_path() const;
+	Error load_source_code(const String& p_path);
+
+	void set_binary_tokens_source(const Vector<uint8_t>& p_binary_tokens) { binary_tokens = p_binary_tokens; }
+	const Vector<uint8_t>& get_binary_tokens_source() const { return binary_tokens; }
+	Vector<uint8_t> get_as_binary_tokens() const;
+
+	void unload_static() const;
+
+	Ruzta();
+	~Ruzta();
 };
 
 class RuztaInstance : public ScriptInstance {

@@ -32,6 +32,8 @@
 
 #include "ruzta_tokenizer.h"
 
+#include "ruzta_variant/ruzta_variant_extension.h"
+
 #ifdef TOOLS_ENABLED
 #include "ruzta_editor_plugin.h"
 #endif

@@ -34,11 +34,14 @@
 
 #include "ruzta.h"
 #include "ruzta_cache.h"
+#ifdef TOOLS_ENABLED
 #include "ruzta_editor_plugin.h"
+#endif
 #include "ruzta_parser.h"
 #include "ruzta_utility_functions.h"
 #include "ruzta_variant/ruzta_variant_extension.h"
 #include "ruzta_variant/core_constants.h" // Original:
+#include <godot_cpp/classes/engine.hpp>	 // original:
 
 #ifdef TOOLS_ENABLED
 #ifndef RUZTA_NO_LSP

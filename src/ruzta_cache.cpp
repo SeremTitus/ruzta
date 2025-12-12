@@ -140,21 +140,21 @@ RuztaParserRef::~RuztaParserRef() {
 	clear();
 
 	if (!abandoned) {
-		MutexLock lock(RuztaCache::singleton->mutex);
+		MutexLock lock(*RuztaCache::singleton->mutex);
 		RuztaCache::singleton->parser_map.erase(path);
 	}
 }
 
 RuztaCache *RuztaCache::singleton = nullptr;
 
-Mutex RuztaCache::mutex;
+Mutex* RuztaCache::mutex = nullptr;
 
 void RuztaCache::move_script(const String &p_from, const String &p_to) {
 	if (singleton == nullptr || p_from == p_to) {
 		return;
 	}
 
-	MutexLock lock(singleton->mutex);
+	MutexLock lock(*singleton->mutex);
 
 	if (singleton->cleared) {
 		return;
@@ -178,7 +178,7 @@ void RuztaCache::remove_script(const String &p_path) {
 		return;
 	}
 
-	MutexLock lock(singleton->mutex);
+	MutexLock lock(*singleton->mutex);
 
 	if (singleton->cleared) {
 		return;
@@ -207,7 +207,7 @@ void RuztaCache::remove_script(const String &p_path) {
 }
 
 Ref<RuztaParserRef> RuztaCache::get_parser(const String &p_path, RuztaParserRef::Status p_status, Error &r_error, const String &p_owner) {
-	MutexLock lock(singleton->mutex);
+	MutexLock lock(*singleton->mutex);
 	Ref<RuztaParserRef> ref;
 	if (!p_owner.is_empty()) {
 		singleton->dependencies[p_owner].insert(p_path);
@@ -234,12 +234,12 @@ Ref<RuztaParserRef> RuztaCache::get_parser(const String &p_path, RuztaParserRef:
 }
 
 bool RuztaCache::has_parser(const String &p_path) {
-	MutexLock lock(singleton->mutex);
+	MutexLock lock(*singleton->mutex);
 	return singleton->parser_map.has(p_path);
 }
 
 void RuztaCache::remove_parser(const String &p_path) {
-	MutexLock lock(singleton->mutex);
+	MutexLock lock(*singleton->mutex);
 
 	if (singleton->parser_map.has(p_path)) {
 		RuztaParserRef *parser_ref = singleton->parser_map[p_path];
@@ -292,7 +292,7 @@ Vector<uint8_t> RuztaCache::get_binary_tokens(const String &p_path) {
 }
 
 Ref<Ruzta> RuztaCache::get_shallow_script(const String &p_path, Error &r_error, const String &p_owner) {
-	MutexLock lock(singleton->mutex);
+	MutexLock lock(*singleton->mutex);
 
 	if (!p_owner.is_empty()) {
 		singleton->dependencies[p_owner].insert(p_path);
@@ -332,7 +332,7 @@ Ref<Ruzta> RuztaCache::get_shallow_script(const String &p_path, Error &r_error, 
 }
 
 Ref<Ruzta> RuztaCache::get_full_script(const String &p_path, Error &r_error, const String &p_owner, bool p_update_from_disk) {
-	MutexLock lock(singleton->mutex);
+	MutexLock lock(*singleton->mutex);
 
 	if (!p_owner.is_empty()) {
 		singleton->dependencies[p_owner].insert(p_path);
@@ -387,7 +387,7 @@ Ref<Ruzta> RuztaCache::get_full_script(const String &p_path, Error &r_error, con
 }
 
 Ref<Ruzta> RuztaCache::get_cached_script(const String &p_path) {
-	MutexLock lock(singleton->mutex);
+	MutexLock lock(*singleton->mutex);
 
 	if (singleton->full_ruzta_cache.has(p_path)) {
 		return singleton->full_ruzta_cache[p_path];
@@ -401,7 +401,7 @@ Ref<Ruzta> RuztaCache::get_cached_script(const String &p_path) {
 }
 
 Error RuztaCache::finish_compiling(const String &p_owner) {
-	MutexLock lock(singleton->mutex);
+	MutexLock lock(*singleton->mutex);
 
 	// Mark this as compiled.
 	Ref<Ruzta> script = get_cached_script(p_owner);
@@ -441,7 +441,7 @@ void RuztaCache::clear() {
 		return;
 	}
 
-	MutexLock lock(singleton->mutex);
+	MutexLock lock(*singleton->mutex);
 
 	if (singleton->cleared) {
 		return;
@@ -482,11 +482,16 @@ void RuztaCache::clear() {
 
 RuztaCache::RuztaCache() {
 	singleton = this;
+	mutex = memnew(Mutex);
 }
 
 RuztaCache::~RuztaCache() {
 	if (!cleared) {
 		clear();
+	}
+	if (mutex) {
+		memdelete(mutex);
+		mutex = nullptr;
 	}
 	singleton = nullptr;
 }

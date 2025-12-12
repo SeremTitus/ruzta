@@ -35,7 +35,8 @@
 #include <godot_cpp/classes/ref_counted.hpp>  // original: core/object/ref_counted.h
 
 #include "ruzta.h"
-// TODO: #include "core/os/safe_binary_mutex.h" // original: core/os/safe_binary_mutex.h
+
+#include <godot_cpp/classes/mutex.hpp> // original: core/os/safe_binary_mutex.h
 #include <godot_cpp/templates/hash_map.hpp>	 // original: core/templates/hash_map.h
 #include <godot_cpp/templates/hash_set.hpp>	 // original: core/templates/hash_set.h
 
@@ -105,7 +106,7 @@ class RuztaCache {
 	static const int BINARY_MUTEX_TAG = 2;
 
    private:
-	static Mutex mutex;
+	static Mutex* mutex;
 
    public:
 	static void move_script(const String& p_from, const String& p_to);

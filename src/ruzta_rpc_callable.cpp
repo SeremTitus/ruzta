@@ -85,7 +85,7 @@ int RuztaRPCCallable::get_argument_count(bool &r_is_valid) const {
 }
 
 void RuztaRPCCallable::call(const Variant **p_arguments, int p_argcount, Variant &r_return_value, GDExtensionCallError &r_call_error) const {
-	r_return_value = object->callp(method, p_arguments, p_argcount, r_call_error);
+	r_return_value = object->call(method, p_arguments);
 }
 
 RuztaRPCCallable::RuztaRPCCallable(Object *p_object, const StringName &p_method) {
@@ -104,5 +104,5 @@ Error RuztaRPCCallable::rpc(int p_peer_id, const Variant **p_arguments, int p_ar
 		return ERR_UNCONFIGURED;
 	}
 	r_call_error.error = GDExtensionCallErrorType::GDEXTENSION_CALL_OK;
-	return node->rpcp(p_peer_id, method, p_arguments, p_argcount);
+	return node->rpc_id(p_peer_id, method, p_arguments);
 }

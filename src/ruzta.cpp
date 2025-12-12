@@ -130,7 +130,7 @@ Ruzta::UpdatableFuncPtr::UpdatableFuncPtr(RuztaFunction* p_function) {
 	script = ptr->get_script();
 	ERR_FAIL_NULL(script);
 
-	MutexLock script_lock(script->func_ptrs_to_update_mutex);
+	MutexLock script_lock(*script->func_ptrs_to_update_mutex);
 	list_element = script->func_ptrs_to_update.push_back(this);
 }
 
@@ -138,14 +138,14 @@ Ruzta::UpdatableFuncPtr::~UpdatableFuncPtr() {
 	ERR_FAIL_NULL(script);
 
 	if (list_element) {
-		MutexLock script_lock(script->func_ptrs_to_update_mutex);
+		MutexLock script_lock(*script->func_ptrs_to_update_mutex);
 		list_element->erase();
 		list_element = nullptr;
 	}
 }
 
 void Ruzta::_recurse_replace_function_ptrs(const HashMap<RuztaFunction*, RuztaFunction*>& p_replacements) const {
-	MutexLock lock(func_ptrs_to_update_mutex);
+	MutexLock lock(*func_ptrs_to_update_mutex);
 	for (UpdatableFuncPtr* updatable : func_ptrs_to_update) {
 		HashMap<RuztaFunction*, RuztaFunction*>::ConstIterator replacement = p_replacements.find(updatable->ptr);
 		if (replacement) {
@@ -204,8 +204,8 @@ void Ruzta::_update_exports_values(HashMap<StringName, Variant>& values, List<Pr
 
 void Ruzta::_add_doc(const RuztaDocData::ClassDoc& p_doc) {
 	doc_class_name = p_doc.name;
-	if (_owner) {  // Only the top-level class stores doc info.
-		_owner->_add_doc(p_doc);
+	if (_owner_script) {  // Only the top-level class stores doc info.
+		_owner_script->_add_doc(p_doc);
 	} else {  // Remove old docs, add new.
 		for (int i = 0; i < docs.size(); i++) {
 			if (docs[i].name == p_doc.name) {
@@ -299,14 +299,14 @@ void Ruzta::_super_implicit_constructor(Ruzta* p_script, RuztaInstance* p_instan
 	}
 }
 
-RuztaInstance* Ruzta::_create_instance(const Variant** p_args, int p_argcount, Object* p_owner, GDExtensionCallError& r_error) {
+RuztaInstance* Ruzta::_create_instance(const Variant** p_args, int p_argcount, Object* p_owner_script, GDExtensionCallError& r_error) {
 	/* STEP 1, CREATE */
 
 	RuztaInstance* instance = memnew(RuztaInstance);
 	instance->members.resize(member_indices.size());
 	instance->script = Ref<Ruzta>(this);
-	instance->owner = p_owner;
-	instance->owner_id = ObjectID(p_owner->get_instance_id());
+	instance->owner = p_owner_script;
+	instance->owner_id = ObjectID(p_owner_script->get_instance_id());
 #ifdef DEBUG_ENABLED
 	// needed for hot reloading
 	for (const KeyValue<StringName, MemberInfo>& E : member_indices) {
@@ -367,7 +367,7 @@ RuztaInstance* Ruzta::_create_instance(const Variant** p_args, int p_argcount, O
 		// instance->owner->set_script_instance(nullptr);
 		{
 			MutexLock lock(RuztaLanguage::singleton->mutex);
-			instances.erase(p_owner);
+			instances.erase(p_owner_script);
 		}
 		ERR_FAIL_V_MSG(nullptr, "Error constructing a RuztaInstance: " + error_text);
 	}
@@ -386,7 +386,7 @@ RuztaInstance* Ruzta::_create_instance(const Variant** p_args, int p_argcount, O
 			// instance->owner->set_script_instance(nullptr);
 			{
 				MutexLock lock(RuztaLanguage::singleton->mutex);
-				instances.erase(p_owner);
+				instances.erase(p_owner_script);
 			}
 			ERR_FAIL_V_MSG(nullptr, "Error constructing a RuztaInstance: " + error_text);
 		}
@@ -406,7 +406,7 @@ String Ruzta::_get_debug_path() const {
 #ifdef TOOLS_ENABLED
 void Ruzta::_update_exports_down(bool p_base_exports_changed) {
 	bool cyclic_error = false;
-	bool changed = _update_exports(&cyclic_error, false, nullptr, p_base_exports_changed);
+	// bool changed = _update_exports(&cyclic_error, false, nullptr, p_base_exports_changed);
 
 	if (cyclic_error) {
 		return;
@@ -421,11 +421,15 @@ void Ruzta::_update_exports_down(bool p_base_exports_changed) {
 		if (!s) {
 			continue;
 		}
-		s->_update_exports_down(p_base_exports_changed || changed);
+		// s->_update_exports_down(p_base_exports_changed || changed);
+		s->_update_exports_down(p_base_exports_changed);
 	}
 }
 #endif
 
+#ifdef TOOLS_ENABLED
+// TODO: _update_exports signature is incompatible with godot-cpp ScriptExtension
+/*
 bool Ruzta::_update_exports(bool* r_err, bool p_recursive_call, PlaceHolderScriptInstance* p_instance_to_update, bool p_base_exports_changed) {
 #ifdef TOOLS_ENABLED
 
@@ -556,6 +560,8 @@ bool Ruzta::_update_exports(bool* r_err, bool p_recursive_call, PlaceHolderScrip
 	return false;
 #endif
 }
+*/
+#endif
 
 void Ruzta::_save_orphaned_subclasses(ClearData* p_clear_data) {
 	struct ClassRefWithName {
@@ -565,7 +571,7 @@ void Ruzta::_save_orphaned_subclasses(ClearData* p_clear_data) {
 	Vector<ClassRefWithName> weak_subclasses;
 	// collect subclasses ObjectID and name
 	for (KeyValue<StringName, Ref<Ruzta>>& E : subclasses) {
-		E.value->_owner = nullptr;	// bye, you are no longer owned cause I died
+		E.value->_owner_script = nullptr;	// bye, you are no longer owned cause I died
 		ClassRefWithName subclass;
 		subclass.id = ObjectID(E.value->get_instance_id());
 		subclass.fully_qualified_name = E.value->fully_qualified_name;
@@ -785,7 +791,7 @@ void Ruzta::_get_property_list(List<PropertyInfo>* p_properties) const {
 	}
 }
 
-Variant Ruzta::callp(const StringName& p_method, const Variant** p_args, int p_argcount, GDExtensionCallError& r_error) {
+Variant Ruzta::callp(const StringName& p_method, const Variant** p_args, GDExtensionInt p_argcount, GDExtensionCallError& r_error) {
 	Ruzta* top = this;
 	while (top) {
 		if (likely(top->valid)) {
@@ -807,7 +813,7 @@ Variant Ruzta::callp(const StringName& p_method, const Variant** p_args, int p_a
 	// return Script::callp(p_method, p_args, p_argcount, r_error);
 }
 
-Variant Ruzta::_new(const Variant** p_args, int p_argcount, GDExtensionCallError& r_error) {
+Variant Ruzta::_new(const Variant** p_args, GDExtensionInt p_argcount, GDExtensionCallError& r_error) {
 	/* STEP 1, CREATE */
 
 	if (!valid) {
@@ -973,7 +979,7 @@ Error Ruzta::_reload(bool p_keep_state) {
 		}
 		if (!source_path.is_empty()) {
 			if (RuztaCache::get_cached_script(source_path).is_null()) {
-				MutexLock lock(RuztaCache::singleton->mutex);
+				MutexLock lock(*RuztaCache::singleton->mutex);
 				RuztaCache::singleton->shallow_ruzta_cache[source_path] = Ref<Ruzta>(this);
 			}
 			if (RuztaCache::has_parser(source_path)) {
@@ -1289,7 +1295,7 @@ void Ruzta::clear(ClearData* p_clear_data) {
 	}
 
 	{
-		MutexLock lock(func_ptrs_to_update_mutex);
+		MutexLock lock(*func_ptrs_to_update_mutex);
 		for (UpdatableFuncPtr* updatable : func_ptrs_to_update) {
 			updatable->ptr = nullptr;
 		}
@@ -1341,7 +1347,7 @@ void Ruzta::clear(ClearData* p_clear_data) {
 
 #ifdef TOOLS_ENABLED
 	// Clearing inner class doc, script doc only cleared when the script source deleted.
-	if (_owner) {
+	if (_owner_script) {
 		_clear_doc();
 	}
 #endif
@@ -1399,9 +1405,9 @@ Ruzta* Ruzta::find_class(const String& p_qualified_name) {
 	} else if (HashMap<StringName, Ref<Ruzta>>::Iterator E = subclasses.find(first)) {
 		class_names = p_qualified_name.split("::");
 		result = E->value.ptr();
-	} else if (_owner != nullptr) {
+	} else if (_owner_script != nullptr) {
 		// Check parent scope.
-		return _owner->find_class(p_qualified_name);
+		return _owner_script->find_class(p_qualified_name);
 	}
 
 	// Starts at index 1 because index 0 was handled above.
@@ -1429,8 +1435,8 @@ bool Ruzta::has_class(const Ruzta* p_script) {
 
 Ruzta* Ruzta::get_root_script() {
 	Ruzta* result = this;
-	while (result->_owner) {
-		result = result->_owner;
+	while (result->_owner_script) {
+		result = result->_owner_script;
 	}
 	return result;
 }
@@ -1611,7 +1617,7 @@ Ruzta::~Ruzta() {
 	destructing = true;
 
 	if (is_print_verbose_enabled()) {
-		MutexLock lock(func_ptrs_to_update_mutex);
+		MutexLock lock(*func_ptrs_to_update_mutex);
 		if (!func_ptrs_to_update.is_empty()) {
 			print_line(vformat("Ruzta: %d orphaned lambdas becoming invalid at destruction of script '%s'.", func_ptrs_to_update.size(), fully_qualified_name));
 		}
@@ -2143,10 +2149,6 @@ RuztaInstance::~RuztaInstance() {
 
 RuztaLanguage* RuztaLanguage::singleton = nullptr;
 
-String RuztaLanguage::_get_name() const {
-	return "Ruzta";
-}
-
 /* LANGUAGE FUNCTIONS */
 
 void RuztaLanguage::_add_global(const StringName& p_name, const Variant& p_value) {
@@ -2627,12 +2629,15 @@ void RuztaLanguage::_reload_scripts(const Array& p_scripts, bool p_soft_reload) 
 				continue;
 			}
 
+#ifdef TOOLS_ENABLED
 			if (script_inst->is_placeholder() && scr->is_placeholder_fallback_enabled()) {
 				PlaceHolderScriptInstance *placeholder = static_cast<PlaceHolderScriptInstance *>(script_inst);
 				for (List<Pair<StringName, Variant>>::Element* G = saved_state.front(); G; G = G->next()) {
 					placeholder->property_set_fallback(G->get().first, G->get().second);
 				}
-			} else {
+			} else
+#endif
+			{
 				for (List<Pair<StringName, Variant>>::Element* G = saved_state.front(); G; G = G->next()) {
 					script_inst->set(G->get().first, G->get().second);
 				}

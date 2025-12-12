@@ -1,14 +1,13 @@
 #include "ruzta_script_server.h"
 
 #include <godot_cpp/classes/config_file.hpp>	   // original:
-#include <godot_cpp/classes/script_backtrace.hpp>  // original:
 #include <godot_cpp/core/error_macros.hpp>		   // original:
 #include <godot_cpp/core/mutex_lock.hpp>		   // original:
 #include <godot_cpp/templates/hash_set.hpp>		   // original:
 
 #include "ruzta_project_settings.h"
 
-ScriptLanguage* RuztaScriptServer::_languages[MAX_LANGUAGES];
+ScriptLanguage *RuztaScriptServer::_languages[16];
 int RuztaScriptServer::_language_count = 0;
 bool RuztaScriptServer::languages_ready = false;
 Mutex RuztaScriptServer::languages_mutex;
@@ -17,6 +16,15 @@ thread_local bool RuztaScriptServer::thread_entered = false;
 bool RuztaScriptServer::scripting_enabled = true;
 bool RuztaScriptServer::reload_scripts_on_save = false;
 ScriptEditRequestFunction RuztaScriptServer::edit_request_func = nullptr;
+
+// These need to be the last static variables in this file, since we're exploiting the reverse-order destruction of static variables.
+static bool is_program_exiting = false;
+struct ProgramExitGuard {
+	~ProgramExitGuard() {
+		is_program_exiting = true;
+	}
+};
+static ProgramExitGuard program_exit_guard;
 
 void RuztaScriptServer::set_scripting_enabled(bool p_enabled) {
 	scripting_enabled = p_enabled;

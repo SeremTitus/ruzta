@@ -37,6 +37,7 @@
 
 #include <godot_cpp/templates/hash_map.hpp> // original: core/templates/hash_map.h
 #include <godot_cpp/templates/hash_set.hpp> // original: core/templates/hash_set.h
+#ifdef TOOLS_ENABLED
 #include <godot_cpp/classes/editor_translation_parser_plugin.hpp> // original: editor/translations/editor_translation_parser.h
 
 class RuztaEditorTranslationParserPlugin : public EditorTranslationParserPlugin {
@@ -83,3 +84,4 @@ public:
 
 	RuztaEditorTranslationParserPlugin();
 };
+#endif // TOOLS_ENABLED

@@ -1271,10 +1271,11 @@ void RuztaByteCodeGenerator::write_call_native_static_validated(const RuztaCodeG
 	Variant::Type return_type = Variant::NIL;
 	bool has_return = p_method->has_return();
 
-	if (has_return) {
-		PropertyInfo return_info = p_method->get_return_info();
-		return_type = return_info.type;
-	}
+	// TODO: MethodBind::get_return_info is not available in godot-cpp
+	// if (has_return) {
+	// 	PropertyInfo return_info = p_method->get_return_info();
+	// 	return_type = return_info.type;
+	// }
 
 	CallTarget ct = get_call_target(p_target, return_type);
 
@@ -1314,10 +1315,11 @@ void RuztaByteCodeGenerator::write_call_method_bind_validated(const Address &p_t
 	Variant::Type return_type = Variant::NIL;
 	bool has_return = p_method->has_return();
 
-	if (has_return) {
-		PropertyInfo return_info = p_method->get_return_info();
-		return_type = return_info.type;
-	}
+	// TODO: MethodBind::get_return_info is not available in godot-cpp
+	// if (has_return) {
+	// 	PropertyInfo return_info = p_method->get_return_info();
+	// 	return_type = return_info.type;
+	// }
 
 	CallTarget ct = get_call_target(p_target, return_type);
 

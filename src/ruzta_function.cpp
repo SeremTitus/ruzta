@@ -222,7 +222,7 @@ Variant RuztaFunctionState::resume(const Variant &p_arg) {
 
 	// If the return value is a RuztaFunctionState reference,
 	// then the function did await again after resuming.
-	if (ret.is_ref_counted()) {
+	if (ret.get_type() == Variant::OBJECT) {
 		RuztaFunctionState *gdfs = Object::cast_to<RuztaFunctionState>(ret);
 		if (gdfs && gdfs->function == function) {
 			completed = false;
@@ -254,12 +254,13 @@ void RuztaFunctionState::_clear_stack() {
 }
 
 void RuztaFunctionState::_clear_connections() {
-	List<Object::Connection> conns;
-	get_signals_connected_to_this(&conns);
+	// TODO
+	// List<Object::Connection> conns;
+	// get_signals_connected_to_this(&conns);
 
-	for (Object::Connection &c : conns) {
-		c.signal.disconnect(c.callable);
-	}
+	// for (Object::Connection &c : conns) {
+	// 	c.signal.disconnect(c.callable);
+	// }
 }
 
 void RuztaFunctionState::_bind_methods() {

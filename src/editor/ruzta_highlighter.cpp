@@ -32,6 +32,8 @@
 
 #include "ruzta_highlighter.h"
 
+#ifdef TOOLS_ENABLED
+
 #include "../ruzta.h"
 #include "../ruzta_tokenizer.h"
 
@@ -41,7 +43,7 @@
 // TODO: #include "editor/themes/editor_theme_manager.h" // original: editor/themes/editor_theme_manager.h
 #include <godot_cpp/classes/text_edit.hpp> // original: scene/gui/text_edit.h
 
-Dictionary RuztaSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_line) {
+Dictionary RuztaSyntaxHighlighter::_get_line_syntax_highlighting(int p_line) const {
 	Dictionary color_map;
 
 	Type next_type = NONE;
@@ -92,7 +94,11 @@ Dictionary RuztaSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_line
 			get_line_syntax_highlighting(i);
 		}
 		if (!color_region_cache.has(p_line - 1)) {
-			get_line_syntax_highlighting(p_line - 1);
+			// This is a const method, but we can call non-const methods of the base class?
+			// _get_line_syntax_highlighting is const. the base class method get_line_syntax_highlighting is NOT const?
+			// Actually get_line_syntax_highlighting is const in Godot 4?
+			// If not, we have a problem. Assuming it is const or we const_cast.
+			const_cast<RuztaSyntaxHighlighter*>(this)->get_line_syntax_highlighting(p_line - 1);
 		}
 		in_region = color_region_cache[p_line - 1];
 	}
@@ -1016,3 +1022,4 @@ Ref<EditorSyntaxHighlighter> RuztaSyntaxHighlighter::_create() const {
 	syntax_highlighter.instantiate();
 	return syntax_highlighter;
 }
+#endif // TOOLS_ENABLED
